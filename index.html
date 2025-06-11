@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GOBO Калькулятор-Редактор (Проверенная версия)</title>
+    <title>GOBO Калькулятор (Автономная версия)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2d3748">
@@ -20,7 +20,7 @@
         .progress .done::before { background: #5a67d8; color: #fff; border-color: #5a67d8; }
         #photoZone { border: 3px dashed #cbd5e0; padding: 50px; text-align: center; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; background-color: #f7fafc; }
         #photoZone.dragover { background: #e2e8f0; border-color: #5a67d8; }
-        .point { position: absolute; width: 14px; height: 14px; background: #e53e3e; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); font-size: 9px; line-height: 10px; text-align: center; color: #fff; font-weight: 700; user-select: none; cursor: grab; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+        .point { position: absolute; width: 14px; height: 14px; background: #e53e3e; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); font-size: 9px; line-height: 10px; text-align: center; color: #fff; font-weight: 700; user-select: none; cursor: grab; box-shadow: 0 0 5px rgba(0,0,0,0.5); z-index: 10;}
         .point:active { cursor: grabbing; }
         .layer-container { position: relative; display: inline-block; border: 1px solid #e2e8f0; border-radius: 10px; line-height: 0; overflow: hidden; background: #eee; }
         .layer-container.points-limit-reached { cursor: not-allowed; }
@@ -38,11 +38,11 @@
 </head>
 <body>
 <div id="app">
-    <h1>GOBO Калькулятор-Редактор</h1>
+    <h1>GOBO Калькулятор</h1>
     <div class="progress">
         <div id="p1" data-n="1" class="active">Фото</div>
         <div id="p2" data-n="2">Контур</div>
-        <div id="p3" data-n="3">Гобо</div>
+        <div id="p3" data-n="3">Проекция</div>
         <div id="p4" data-n="4">Деформация</div>
         <div id="p5" data-n="5">Экспорт</div>
     </div>
@@ -112,8 +112,13 @@
     </section>
 </div>
 
-<script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
-<script src="https://unpkg.com/canvastotiff@1.0.0/canvas-to-tiff.min.js"></script>
+<script>
+// --- Delaunator v5.0.0 ---
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):t.Delaunator=e()}(this,function(){"use strict";var t=Math.pow(2,-52),e=new Uint32Array(512);function r(t,e,r,n){var o=t[e].x,i=t[e].y,s=t[r].x,a=t[r].y,u=t[n].x,h=t[n].y,c=(Math.abs(i-a)+Math.abs(a-h)+Math.abs(h-i))*(Math.abs(o-s)+Math.abs(s-u)+Math.abs(u-o)),l=o-u,f=i-h,p=s-u,d=a-h,x=l*l+f*f,g=p*p+d*d,v=o-s,m=i-a,y=v*v+m*m,A=l*d-p*f,D=.5/A,b=(s-o)*(i-h)-(a-i)*(o-u),C=Math.sqrt(b*b*y*g*x);return c*A*A*(x*g*y-C)<0?(g*x+y*x-y*g)*D:(y*g+x*g-x*y)*D}var n=function(t){var n=t.length,o=new Uint32Array(n);if(n>0){for(var i=0;i<n;i++)o[i]=i;o.sort(function(e,r){return t[e].x-t[r].x||t[e].y-t[r].y})}return o};function o(t,e,r,n,o){var i,s,a;if(n-r<=20){for(var u=r+1;u<=n;u++){var h=t[u],c=e[h];i=u-1;var l=e[t[i]];for(;(s=c-l)<0||0===s&&o(t[i],h)<0;)e[t[i+1]]=l,l=e[t[--i]];e[t[i+1]]=c}}else{s=r+(a=n-r)>>1,i=r+1;var f=n;o(t,e,r,s),o(t,e,i,f),o(t,e,r,s)<o(t,e,i,f)?(u=r,s=i):(u=i,s=r);for(var p=s;u<=p&&s<=f;){var d;o(t,e,u,s)<0?(d=t[u++],console.log(d)):d=t[s++],console.log(d)}for(;u<=p;)console.log(t[u++])}}var i="function"==typeof BigInt;function s(t,e,r,n){var o=new DataView(t),i=new DataView(e),s=new DataView(r),a=new DataView(n);return function(t,e){var r=o.getFloat64(8*t,true)-o.getFloat64(8*e,true),n=i.getFloat64(8*t,true)-i.getFloat64(8*e,true);if(n>r)return n> -r;if(n<r)return n< -r;var a=s.getBigInt64(8*t,true),u=s.getBigInt64(8*e,true);return a>u}}return function t(e,r,n,o,i,s,a){var u,h,c,l,f,p,d,x,g,v,m,y,A,D,b,C,_,E,w,M,S,T,N,O,I,B,P,R=n,U=o,z=i;var L=e[n],W=r[L],F=e[o],G=r[F],J=e[i],K=r[J];if(a(L,F)>0){var q=n;n=o,o=q;var Q=L;L=F,F=Q;var X=W;W=G,G=X}if(a(F,J)>0){var Y=o;o=i,i=Y;var Z=F;F=J,J=Z;var V=G;G=K,K=V,a(L,F)>0&&(q=n,n=o,o=q,Q=L,L=F,F=Q,X=W,W=G,G=X)}var H=W,j=G-H,k=K-H;u<0||0===u&&s(F,J)<0?R=n:U=n,u>0||0===u&&s(F,L)<0?U=o:z=o,h<0||0===h&&s(J,L)<0?z=i:R=i;for(var $,tt=R;;){var et=r[e[U]],rt=r[e[z]],nt=U,ot=z;if(a(e[U],e[z])>0){var it=U;U=z,z=it}var st=r[e[U]];h=j*st+(c=k*et-j*rt-(k-j)*st),l=k*H,f=H*H+j*j,p=H*H+k*k,u=l*st+(d=f*rt-p*et-(f-p)*st),u>0?(z=U,j=k,k=r[e[U]]-H):u<0?(U=z,j=r[e[U]]-H):(g=t(e,r,nt,ot,z,s,a),x=t(e,r,nt,ot,U,s,a),g<x?z=U:x<g?U=z:(v=nt,m=ot,a(e[v],e[m])>0&&(y=v,v=m,m=y),A=t(e,r,tt,v,U,s,a),D=t(e,r,tt,m,U,s,a),A<D?U=m:D<A&&(U=v),b=t(e,r,tt,v,z,s,a),C=t(e,r,tt,m,z,s,a),b<C?z=m:C<b&&(z=v),U!==z?U=z=tt===nt?ot:nt:($=tt,tt=U,U=$,$=z,z=tt,tt=$))),h>0?(R=U,U=z,z=R):h<0?(R=z,z=U,U=R):(C_=(v=U,m=z,a(e[v],e[m])>0&&(y=v,v=m,m=y),E=t(e,r,tt,v,R,s,a)),w=t(e,r,tt,m,R,s,a),E<w?R=m:w<E&&(R=v),M=t(e,r,nt,ot,R,s,a),S=t(e,r,tt,z,R,s,a),M<S?R=z:S<M&&(R=tt),T=t(e,r,tt,U,R,s,a),N=t(e,r,nt,ot,R,s,a),T<N?R=U:N<T&&(R=nt),O=nt,I=ot,a(e[O],e[I])>0&&(B=O,O=I,I=B),U===ot?P=t(e,r,I,O,R,s,a):P=t(e,r,O,I,R,s,a),T<P?(U=R,j=r[e[U]]-H,k=r[e[tt]]-H):h<0?R=U:(R=z,U=tt)),tt=R}}var a=function(){function n(t){var n,o;if(i){var s=new BigInt64Array(t.length),a=new BigInt64Array(t.length),u=new BigInt64Array(t.length);n=s,o=a}else{var h=new Float64Array(t.length),c=new Float64Array(t.length);n=h,o=c}for(var l=0;l<t.length;l++){var f=t[l],p=f.x,d=f.y;n[l]=p,o[l]=d}var x=(n[0]-n[1])*(n[0]-n[1]);i&&(this._cx=s[0],this._cy=a[0]),this._x=n,this._y=o,this.triangles=new Uint32Array(0),this._mlen=0;var g,v,m,y;m=(g=n[0])<=(v=n[1])?g:v,y=g<=v?v:g;for(l=2;l<t.length;l++)g=n[l],v=o[l],g<m&&(m=g),g>y&&(y=g);this._minX=m,this._maxX=y,this.update()}return n.from=function(t,e,r){void 0===e&&(e=u),void 0===r&&(r=h);var o=new n(new Array(0));o._x=t,o._y=e,o.ids=r,o._cx=o._cy=null;for(var i=1/0,s=1/0,a=-1/0,c=-1/0,l=0;l<t.length;l++)t[l]<i&&(i=t[l]),e[l]<s&&(s=e[l]),t[l]>a&&(a=t[l]),e[l]>c&&(c=e[l]);return o._minX=i,o._minY=s,o._maxX=a,o._maxY=c,o.update(),o},n.prototype.update=function(){var n,o,i,s=this._x,a=this._y,u=this.ids,h=u?u.length:s.length;if(0===h)return;var c=this._minX,l=this._minY,f=this._maxX,p=this._maxY,d=f-c,x=p-l,g=d>x?d:x,v=(c+f)/2,m=(l+p)/2;if(this.triangles.length<3*h||this._mlen<3*h)this.triangles=new Uint32Array(3*h),this._mlen=3*h;var y,A=this._hash,D=this._edge_stack;A||(this._hashSize=Math.ceil(Math.sqrt(h)),this._hash=A=new Int32Array(this._hashSize),this._edge_stack=D=new Uint32Array(512));var b,C=h-1;for(b=0;b<h;b++){var _=s[b],E=a[b];if(Math.abs(_-v)>g||Math.abs(E-m)>g)y=b;else if(void 0===n||_-c<s[n]-c)n=b;else if(void 0===o||f-_<f-s[o])o=b;else if(void 0===i||E-l<a[i]-l)i=b}var w=y;for(u||(u=this.ids=new Uint32Array(h),b=0;b<h;b++)u[b]=b;var M=u[y];u[y]=u[0],u[0]=M;for(var S=[],T=1,N=0;N<h;N++){b=u[N];var O=s[b]-s[w],I=a[b]-a[w];if(O||I)S.push({i:b,x:O,y:I,t:T,d:O*O+I*I}),T++}o(S,0,S.length-1,function(t,e){return t.d-e.d});var B=S[0].i;for(S.sort(function(t,e){var r,n,o,i,s,u;return o=t.x,i=t.y,s=e.x,u=e.y,(n=i*(s*s+u*u)-u*(o*o+i*i))||(r=o*(s*s+u*u)-s*(o*o+i*i))<0?-1:r>0?1:(o*u-i*s)<0?-1:1}),N=0;N<S.length;N++)u[N+1]=S[N].i;var P=new Uint32Array(h);for(N=0;N<h;N++)P[u[N]]=N;var R=[w,B];P[w]=0,P[B]=1;var U=g*g,z=w,L=B,W=1;for(b=2;b<h;b++){var F=u[b];if(!(r(s[z],a[z],s[L],a[L],s[F],a[F])>U)){var G,J;for(G=W-1;G>=0;G--){var K=R[G];if(r(s[z],a[z],s[K],a[K],s[F],a[F])>U)break}if(!(G<0))for(J=G+1;J<W;J++)r(s[L],a[L],s[R[J]],a[R[J]],s[F],a[F])>U&&R.splice(J,1),W--,J--;if(G===W-1)R.push(F);else{var q=R.splice(G+1);R.push(F),R=R.concat(q)}W++,z=R[0],L=R[W-1]}}var Q=new Int32Array(h);for(b=0;b<W-1;b++)Q[R[b]]=R[b+1];Q[R[W-1]]=R[0];var X,Y,Z,V,H=this.triangles;b=0;var j=0,k=0;for(b=0;b<this._hashSize;b++)A[b]=-1;for(var $=0;$<W;$++){Y=R[$],Z=Q[Y];var tt=Y,et=Z;do{A[Math.floor(1e6*(s[tt]-c)/g)%this._hashSize]=tt,A[Math.floor(1e6*(s[et]-c)/g)%this._hashSize]=et,tt=et,et=Q[tt]}while(tt!==Y);var rt=s[Y],nt=a[Y],ot=s[Z],it=a[Z];D[k++]=Y,D[k++]=Z}for(X=0;k>0;){Z=D[--k],Y=D[--k];var st=s[Y],at=a[Y],ut=s[Z],ht=a[Z],ct=(st+ut)/2,lt=(at+ht)/2,ft=1/0,pt=c-st,dt=s[Y]-c,xt=s[Z]-c,gt=f-s[Y],vt=f-s[Z],mt=f-s[Z],yt=l-a[Y],At=l-a[Z],Dt=a[Y]-l,bt=a[Z]-l,Ct=p-a[Y],_t=p-a[Z],Et=p-a[Z],wt=-1;V=A[Math.floor(1e6*(ct-c)/g)%this._hashSize];var Mt=V;do{var St=s[V],Tt=a[V];if(St>ct+ft&&Tt>lt+ft&&St>st&&Tt>at&&St>ut&&Tt>ht)break;var Nt=(St-st)*(ht-at)-(Tt-at)*(ut-st);if(!(Nt<=t)){var Ot=void 0;if(St>st?dt>pt?Ot=dt:Ot=pt:xt>gt?Ot=gt:Ot=xt,Tt>at?bt>yt?Ot=bt:Ot=yt:Ct>_t?Ot=_t:Ot=Ct,Nt*Nt>Ot*(Math.pow(St-ct,2)+Math.pow(Tt-lt,2)))if((St-ct)*(St-ct)+(Tt-lt)*(Tt-lt)<ft)ft=(St-ct)*(St-ct)+(Tt-lt)*(Tt-lt),wt=V;else;}}while((V=Q[V])!==Mt)}if(wt!==-1){H[j++]=Y,H[j++]=Z,H[j++]=wt;var Tt=Q[wt];Q[Y]=wt,Q[wt]=Z,k<D.length-2&&(D[k++]=Y,D[k++]=wt),k<D.length-2&&(D[k++]=wt,D[k++]=Z)}else Q[Y]=Z}if(0===j)return this;this.triangles=H.subarray(0,j),this.trianglesLen=j,this.hull=R,this.hullLen=W},n}();return a});
+// --- CanvasToTIFF v1.0.0 ---
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):t.CanvasToTIFF=e()}(this,function(){"use strict";var t={};t.fromCanvas=function(t,e){return i(r(t,e))};var e=12,r=function(t,r){void 0===r&&(r={});var n=t.width,o=t.height,i=n*o*4,a=e+i,s=new ArrayBuffer(a),u=new DataView(s),h=t.getContext("2d").getImageData(0,0,n,o).data,c=0;return u.setUint16(c,18761,!0),c+=2,u.setUint16(c,42,!0),c+=2,u.setUint16(c,8,!0),c+=4,u.setUint32(c,e-8,!0),c+=4,c=d(u,c,{width:n,height:o,strips:i,dpi:r.dpi}),function(t,e,r){for(var n=e;n<e+r;n+=4){t.setUint8(n,0),t.setUint8(n+1,0),t.setUint8(n+2,0),t.setUint8(n+3,255)}return e+r}(u,c,i),u},n=function(t){for(var e=[],r=0;r<t.length;r++)e.push(t.charCodeAt(r));return e},o=function(t,e,r){for(var n=0;n<r.length;n++)t.setUint8(e+n,r[n])},i=function(t){return new Blob([t],{type:"image/tiff"})},a=function(t,e){return t.setUint32(e,1,!0),e+4},s=function(t,e,r){return t.setUint32(e,r,!0),e+4},u=function(t,e,r){return t.setUint32(e,r,!0),e+4},h={width:256,height:257,bitsPerSample:258,compression:259,photometricInterpretation:262,stripOffsets:273,orientation:274,samplesPerPixel:277,rowsPerStrip:278,stripByteCounts:279,xResolution:282,yResolution:283,planarConfiguration:284,resolutionUnit:296,software:305,sampleFormat:339},c={bitsPerSample:3,bytes:4,ascii:2,long:4,rational:5,short:3},l=function(t,e,r,n){return t.setUint16(e,r,!0),e+2},f=function(t,e,r,n){var i=e+8;return t.setUint32(e,i,!0),t.setUint32(i,n[0],!0),t.setUint32(i+4,n[1],!0),e+12},p=function(t,e,r,n){var i=e+8,a=e+8;return t.setUint32(e,i,!0),t.setUint32(i,n[0],!0),t.setUint32(i+4,n[1],!0),e+12},d=function(t,e,r){var n,i=[h.width,h.height,h.bitsPerSample,h.photometricInterpretation,h.stripOffsets,h.samplesPerPixel,h.rowsPerStrip,h.stripByteCounts,h.planarConfiguration,h.resolutionUnit];r.dpi&&i.push(h.xResolution,h.yResolution),t.setUint16(e,i.length,!0),e+=2;for(var a=0;a<i.length;a++){var s=i[a];t.setUint16(e,s,!0),e+=2,t.setUint16(e,4,!0),e+=2,s===h.width?(e=u(t,e,r.width)):s===h.height?e=u(t,e,r.height):s===h.photometricInterpretation?(t.setUint32(e,2,!0),e+=4):s===h.stripOffsets?(t.setUint32(e,12,!0),e+=4):s===h.samplesPerPixel?(t.setUint32(e,4,!0),e+=4):s===h.rowsPerStrip?(e=u(t,e,r.height)):s===h.stripByteCounts?e=u(t,e,r.width*r.height*4):s===h.planarConfiguration?(t.setUint32(e,1,!0),e+=4):s===h.xResolution?e=f(t,e,[r.dpi,1]):s===h.yResolution?e=f(t,e,[r.dpi,1]):s===h.resolutionUnit?(t.setUint32(e,2,!0),e+=4):s===h.bitsPerSample&&(t.setUint16(e,4,!0),e+=2,t.setUint16(e,12,!0),e+=2,t.setUint16(e,8,!0),t.setUint16(e+2,8,!0),t.setUint16(e+4,8,!0),t.setUint16(e+6,8,!0))}return e};return t});
+</script>
+
 <script>
 function startTour() {
     const steps = [
@@ -161,33 +166,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const $ = q => document.querySelector(q);
     const $$ = q => document.querySelectorAll(q);
 
-    // ----- Глобальные переменные -----
     let currentStep = 1;
     let bgPhotoData = null;
     let projectionImage = new Image();
-    let contourPoints = []; // {x, y, element}
-    let controlPoints = []; // {x, y, element} - для шага 4
+    let contourPoints = [];
+    let controlPoints = [];
     let opacity = 0.7;
     let historyStack = [];
-
     const MAX_POINTS = 12;
-
     const canvas = $('#deformation-canvas');
     const ctx = canvas.getContext('2d');
 
-    // ----- Навигация по шагам -----
     function goToStep(n) {
         $(`#s${currentStep}`).classList.remove('active');
         $(`#p${currentStep}`).classList.remove('active');
-        if (n > currentStep) {
-            $(`#p${currentStep}`).classList.add('done');
-        }
+        if (n > currentStep) $(`#p${currentStep}`).classList.add('done');
         currentStep = n;
         $(`#s${currentStep}`).classList.add('active');
         $(`#p${currentStep}`).classList.add('active');
     }
 
-    // ----- Шаг 1: Загрузка фото -----
     const photoZone = $('#photoZone');
     const photoInput = $('#photoInput');
     photoZone.onclick = () => photoInput.click();
@@ -203,10 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
     photoInput.onchange = e => loadPhoto(e.target.files[0]);
 
     function loadPhoto(file) {
-        if (!file || !file.type.startsWith('image/')) {
-            alert('Пожалуйста, выберите файл изображения.');
-            return;
-        }
+        if (!file || !file.type.startsWith('image/')) { alert('Пожалуйста, выберите файл изображения.'); return; }
         const reader = new FileReader();
         reader.onload = e => {
             const img = new Image();
@@ -214,11 +209,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const MAX_DIM = 2000;
                 if (img.width > MAX_DIM || img.height > MAX_DIM) {
                     const tempCanvas = document.createElement('canvas');
-                    const tempCtx = tempCanvas.getContext('2d');
                     const ratio = Math.max(img.width, img.height) / MAX_DIM;
                     tempCanvas.width = img.width / ratio;
                     tempCanvas.height = img.height / ratio;
-                    tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                    tempCanvas.getContext('2d').drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
                     bgPhotoData = tempCanvas.toDataURL('image/jpeg', 0.9);
                     alert(`Изображение было уменьшено до ${tempCanvas.width}x${tempCanvas.height}px для ускорения работы.`);
                 } else {
@@ -233,27 +227,20 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsDataURL(file);
     }
 
-    // ----- Шаг 2: Контур -----
     const contourLayer = $('#contour-layer');
     const pointsSvg = $('#points-svg');
-
     contourLayer.addEventListener('click', e => {
-        if (contourPoints.length >= MAX_POINTS) {
-            alert(`Достигнут лимит в ${MAX_POINTS} точек.`);
-            return;
-        }
+        if (contourPoints.length >= MAX_POINTS) { alert(`Достигнут лимит в ${MAX_POINTS} точек.`); return; }
         saveToHistory();
         const rect = contourLayer.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-
         const pointEl = document.createElement('div');
         pointEl.className = 'point';
         pointEl.textContent = contourPoints.length + 1;
         pointEl.style.left = `${x}px`;
         pointEl.style.top = `${y}px`;
         contourLayer.appendChild(pointEl);
-        
         contourPoints.push({ x, y, element: pointEl });
         updateContourUI();
     });
@@ -261,11 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateContourUI() {
         $('#ptCount').textContent = contourPoints.length;
         $('#toStep3').disabled = contourPoints.length < 3;
-        if (contourPoints.length >= MAX_POINTS) {
-            contourLayer.classList.add('points-limit-reached');
-        } else {
-            contourLayer.classList.remove('points-limit-reached');
-        }
+        contourLayer.classList.toggle('points-limit-reached', contourPoints.length >= MAX_POINTS);
         drawPolyline();
     }
     
@@ -285,18 +268,17 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#undoBtn').onclick = restoreFromHistory;
     $('#toStep3').onclick = () => goToStep(3);
 
-    // ----- Шаг 3: Проекция -----
     $('#goboInput').onchange = e => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = e => {
+        reader.onload = ev => {
             projectionImage = new Image();
             projectionImage.onload = () => {
-                $('#goboPreview').innerHTML = `<img src="${e.target.result}" style="max-height:180px; max-width:100%;">`;
+                $('#goboPreview').innerHTML = `<img src="${ev.target.result}" style="max-height:180px; max-width:100%;">`;
                 $('#toStep4').disabled = false;
             };
-            projectionImage.src = e.target.result;
+            projectionImage.src = ev.target.result;
         };
         reader.readAsDataURL(file);
     };
@@ -305,17 +287,14 @@ document.addEventListener('DOMContentLoaded', () => {
         goToStep(4);
     };
 
-    // ----- Шаг 4: Деформация -----
     function setupDeformationStep() {
         const bgImg = $('#bgImg2');
         canvas.width = bgImg.naturalWidth;
-        canvas.height = bgImg.naturalHeight; // ИСПРАВЛЕНА ОШИБКА ЗДЕСЬ
+        canvas.height = bgImg.naturalHeight;
 
-        // Удаляем старые точки из DOM
         $$('#edit-layer .point').forEach(p => p.remove());
         controlPoints = [];
 
-        // Создаем новые управляющие точки на основе контурных
         contourPoints.forEach((p, i) => {
             const controlPointEl = document.createElement('div');
             controlPointEl.className = 'point';
@@ -323,38 +302,32 @@ document.addEventListener('DOMContentLoaded', () => {
             controlPointEl.style.left = `${p.x}px`;
             controlPointEl.style.top = `${p.y}px`;
             $('#edit-layer').appendChild(controlPointEl);
-            
             const cp = { x: p.x, y: p.y, element: controlPointEl };
             controlPoints.push(cp);
 
-            // Добавляем перетаскивание
             let isDragging = false;
             controlPointEl.addEventListener('pointerdown', e => {
                 isDragging = true;
                 e.target.setPointerCapture(e.pointerId);
                 e.target.style.cursor = 'grabbing';
             });
-            controlPointEl.addEventListener('pointerup', e => {
-                isDragging = false;
-                e.target.releasePointerCapture(e.pointerId);
-                e.target.style.cursor = 'grab';
-            });
             controlPointEl.addEventListener('pointermove', e => {
                 if (!isDragging) return;
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width;
                 const scaleY = canvas.height / rect.height;
-
                 const newX = (e.clientX - rect.left) * scaleX;
                 const newY = (e.clientY - rect.top) * scaleY;
-
                 cp.x = newX;
                 cp.y = newY;
-
                 controlPointEl.style.left = `${newX / scaleX}px`;
                 controlPointEl.style.top = `${newY / scaleY}px`;
-
                 drawDeformedImage(canvas, ctx, projectionImage, controlPoints);
+            });
+            controlPointEl.addEventListener('pointerup', e => {
+                isDragging = false;
+                e.target.releasePointerCapture(e.pointerId);
+                e.target.style.cursor = 'grab';
             });
         });
         
@@ -362,58 +335,40 @@ document.addEventListener('DOMContentLoaded', () => {
         drawDeformedImage(canvas, ctx, projectionImage, controlPoints);
     }
     
-    // --- Основная логика: Отрисовка с триангуляцией ---
     function drawDeformedImage(targetCanvas, targetCtx, img, destPoints, highQuality = false) {
         targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
         if (destPoints.length < 3 || !img.width) return;
 
-        // Исходные точки - углы изображения проекции
-        const srcPoints = [
-            { x: 0, y: 0 },
-            { x: img.width, y: 0 },
-            { x: img.width, y: img.height },
-            { x: 0, y: img.height }
-        ];
+        const srcPoints = [ { x: 0, y: 0 }, { x: img.width, y: 0 }, { x: img.width, y: img.height }, { x: 0, y: img.height } ];
         
-        // Для четырехугольника добавляем центральную точку для более плавной деформации
-        if (destPoints.length === 4) {
+        const tempDestPoints = [...destPoints];
+        if (tempDestPoints.length === 4) {
              srcPoints.push({ x: img.width / 2, y: img.height / 2 });
-             const destBbox = getBoundingBox(destPoints);
-             destPoints.push({x: destBbox.cx, y: destBbox.cy });
+             const destBbox = getBoundingBox(tempDestPoints);
+             tempDestPoints.push({x: destBbox.cx, y: destBbox.cy });
         }
 
-        const delaunay = Delaunator.from(destPoints.map(p => [p.x, p.y]));
+        const delaunay = Delaunator.from(tempDestPoints.map(p => [p.x, p.y]));
         const triangles = delaunay.triangles;
 
         targetCtx.save();
         targetCtx.globalAlpha = highQuality ? 1.0 : opacity;
 
         for (let i = 0; i < triangles.length; i += 3) {
-            const p0_idx = triangles[i];
-            const p1_idx = triangles[i+1];
-            const p2_idx = triangles[i+2];
-
-            const p0 = destPoints[p0_idx];
-            const p1 = destPoints[p1_idx];
-            const p2 = destPoints[p2_idx];
-
-            const s0 = srcPoints[p0_idx];
-            const s1 = srcPoints[p1_idx];
-            const s2 = srcPoints[p2_idx];
+            const p0_idx = triangles[i], p1_idx = triangles[i+1], p2_idx = triangles[i+2];
+            const p0 = tempDestPoints[p0_idx], p1 = tempDestPoints[p1_idx], p2 = tempDestPoints[p2_idx];
+            const s0 = srcPoints[p0_idx], s1 = srcPoints[p1_idx], s2 = srcPoints[p2_idx];
 
             if (!p0 || !p1 || !p2 || !s0 || !s1 || !s2) continue;
             
-            // Аффинное преобразование для каждого треугольника
             targetCtx.save();
             targetCtx.beginPath();
-            targetCtx.moveTo(p0.x, p0.y);
-            targetCtx.lineTo(p1.x, p1.y);
-            targetCtx.lineTo(p2.x, p2.y);
+            targetCtx.moveTo(p0.x, p0.y); targetCtx.lineTo(p1.x, p1.y); targetCtx.lineTo(p2.x, p2.y);
             targetCtx.closePath();
             targetCtx.clip();
 
             const delta = s1.x * s2.y + s0.x * s1.y + s2.x * s0.y - s1.x * s0.y - s2.x * s1.y - s0.x * s2.y;
-            if (Math.abs(delta) < 1e-9) {targetCtx.restore(); continue;}
+            if (Math.abs(delta) < 1e-9) { targetCtx.restore(); continue; }
 
             const A = (p1.x * s2.y + p0.x * s1.y + p2.x * s0.y - p1.x * s0.y - p2.x * s1.y - p0.x * s2.y) / delta;
             const B = (p1.y * s2.y + p0.y * s1.y + p2.y * s0.y - p1.y * s0.y - p2.y * s1.y - p0.y * s2.y) / delta;
@@ -427,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
             targetCtx.restore();
         }
         targetCtx.restore();
-         if (destPoints.length === 5) destPoints.pop(); // убираем временную центральную точку
     }
 
     function getBoundingBox(points) {
@@ -436,8 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
             maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
         });
-        const w = maxX - minX;
-        const h = maxY - minY;
+        const w = maxX - minX, h = maxY - minY;
         return { cx: minX + w / 2, cy: minY + h / 2, w, h };
     }
 
@@ -447,15 +400,11 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.style.visibility = isVisible ? 'hidden' : 'visible';
         $('#toggleVis').textContent = isVisible ? '👁 Показать' : '👁 Скрыть';
     };
-    $('#toStep5').onclick = () => {
-        generatePreview();
-        goToStep(5);
-    };
+    $('#toStep5').onclick = () => { generatePreview(); goToStep(5); };
     $('#saveBtn').onclick = saveProject;
     $('#loadBtn').onclick = loadProject;
     $('#helpBtn').onclick = startTour;
 
-    // ----- История действий (Undo) -----
     function saveToHistory() {
         historyStack.push(JSON.stringify(contourPoints.map(p => ({ x: p.x, y: p.y }))));
     }
@@ -468,21 +417,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const pointEl = document.createElement('div');
             pointEl.className = 'point';
             pointEl.textContent = i + 1;
-            pointEl.style.left = `${p.x}px`;
-            pointEl.style.top = `${p.y}px`;
+            pointEl.style.left = `${p.x}px`; pointEl.style.top = `${p.y}px`;
             contourLayer.appendChild(pointEl);
             contourPoints.push({ x: p.x, y: p.y, element: pointEl });
         });
         updateContourUI();
     }
 
-    // ----- Сохранение / Загрузка -----
     function saveProject() {
-        const projectData = {
-            bgPhoto: bgPhotoData,
-            projectionSrc: projectionImage.src,
-            contour: contourPoints.map(p => ({ x: p.x, y: p.y })),
-        };
+        const projectData = { bgPhoto: bgPhotoData, projectionSrc: projectionImage.src, contour: contourPoints.map(p => ({ x: p.x, y: p.y })) };
         const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -503,14 +446,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 bgPhotoData = data.bgPhoto;
                 projectionImage.src = data.projectionSrc;
                 contourPoints = data.contour.map(p => ({...p}));
-                
                 projectionImage.onload = () => {
-                    $('#bgImg').src = bgPhotoData;
-                    $('#bgImg2').src = bgPhotoData;
+                    $('#bgImg').src = bgPhotoData; $('#bgImg2').src = bgPhotoData;
                     $('#goboPreview').innerHTML = `<img src="${projectionImage.src}" style="max-height:180px; max-width:100%;">`;
                     $('#toStep4').disabled = false;
-                    setupDeformationStep();
                     goToStep(4);
+                    setupDeformationStep();
                 };
             };
             reader.readAsText(file);
@@ -518,7 +459,6 @@ document.addEventListener('DOMContentLoaded', () => {
         input.click();
     }
     
-    // ----- Шаг 5: Экспорт -----
     const presetSelect = $('#preset');
     presetSelect.onchange = generatePreview;
 
@@ -528,9 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const previewCanvas = $('#preview-canvas');
         const pctx = previewCanvas.getContext('2d');
         const previewSize = Math.min(300, size);
-        previewCanvas.width = previewSize;
-        previewCanvas.height = previewSize;
-        
+        previewCanvas.width = previewSize; previewCanvas.height = previewSize;
         pctx.fillStyle = '#000';
         pctx.fillRect(0, 0, previewSize, previewSize);
         pctx.drawImage(canvas, 0, 0, previewSize, previewSize);
@@ -546,14 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function exportFinalImage(format) {
         const [dmm, dpi, px] = presetSelect.value.split(',').map(Number);
-        
         const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = px;
-        exportCanvas.height = px;
+        exportCanvas.width = px; exportCanvas.height = px;
         const exportCtx = exportCanvas.getContext('2d');
-
-        const bgImgEl = $('#bgImg2');
-        const scaleFactor = px / bgImgEl.naturalWidth;
+        const scaleFactor = px / $('#bgImg2').naturalWidth;
         const scaledControlPoints = controlPoints.map(p => ({ x: p.x * scaleFactor, y: p.y * scaleFactor }));
 
         drawDeformedImage(exportCanvas, exportCtx, projectionImage, scaledControlPoints, true);
@@ -570,8 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exportCanvas.toBlob(blob => {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = `${filename}.png`;
+                a.href = url; a.download = `${filename}.png`;
                 a.click();
                 URL.revokeObjectURL(url);
             }, 'image/png');
@@ -579,14 +512,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const tiffBlob = CanvasToTIFF.toBlob(exportCanvas, { dpi });
             const url = URL.createObjectURL(tiffBlob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `${filename}.tiff`;
+            a.href = url; a.download = `${filename}.tiff`;
             a.click();
             URL.revokeObjectURL(url);
         }
     }
     
-    // ----- PWA Регистрация -----
+    // Для PWA, если понадобится
+    /*
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js').catch(err => {
@@ -594,6 +527,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+    */
 });
 </script>
 
