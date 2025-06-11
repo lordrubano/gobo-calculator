@@ -1,79 +1,3 @@
-<!DOCTYPE html>
-<html lang="ru" style="scroll-behavior: smooth;">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GOBO Калькулятор-Профессионал v4.0</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-to-tiff@1.1.1/dist/canvas-to-tiff.min.js"></script>
-    
-    <style>
-        /* Стили остаются такими же, как в предыдущей успешной версии */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f4f7f6; color: #333; }
-        .header { background: white; padding: 15px 30px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000; }
-        .header h1 { color: #4a4a4a; margin-bottom: 15px; font-size: 24px; }
-        .progress-bar { display: flex; list-style: none; padding: 0; justify-content: space-between; max-width: 900px; margin: auto; }
-        .progress-bar a { flex: 1; text-align: center; font-weight: bold; color: #718096; position: relative; text-decoration: none; cursor: not-allowed; opacity: 0.5; padding: 8px 0; }
-        .progress-bar a.unlocked { cursor: pointer; opacity: 1; }
-        .progress-bar a::before { content: attr(data-step); display: block; margin: 0 auto 5px; width: 30px; height: 30px; line-height: 30px; border: 2px solid #cbd5e0; border-radius: 50%; background: #fff; color: #cbd5e0; transition: all 0.3s ease; }
-        .progress-bar a.active::before { border-color: #5a67d8; color: #5a67d8; font-weight: 700; transform: scale(1.1); }
-        .progress-bar a.completed::before { background: #5a67d8; color: #fff; border-color: #5a67d8; }
-        .progress-bar a.completed + a.unlocked::after { content: ""; position: absolute; top: 14px; left: -50%; width: 100%; height: 2px; background: #5a67d8; z-index: -1; transition: background 0.3s ease; }
-        .progress-bar a:not(:first-child)::after { content: ""; position: absolute; top: 14px; left: -50%; width: 100%; height: 2px; background: #cbd5e0; z-index: -1; }
-        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
-        .toolbar { text-align: right; margin-bottom: 20px; }
-        .step-section { background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.08); margin-bottom: 40px; border-left: 5px solid #e2e8f0; transition: all 0.5s ease-out; }
-        .step-section.active { border-left-color: #5a67d8; }
-        .step-section.completed { border-left-color: #48bb78; }
-        .step-section.is-locked { display: none; }
-        .step-section h2 { color: #5a67d8; margin-bottom: 10px; font-size: 28px; display: flex; align-items: center; }
-        .step-section h2 .step-number { background: #5a67d8; color: white; border-radius: 50%; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; margin-right: 15px; flex-shrink: 0; }
-        .step-section > p { color: #666; margin-bottom: 25px; }
-        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568; }
-        .form-group input { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; }
-        .photo-upload-area { border: 3px dashed #cbd5e0; border-radius: 10px; padding: 40px; text-align: center; background: #f7fafc; transition: all 0.3s ease; cursor: pointer; }
-        .photo-upload-area:hover { border-color: #5a67d8; }
-        #photo-container { position: relative; display: inline-block; margin-top: 20px; user-select: none; }
-        #step2-photo { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: block;}
-        .assigned-point { position: absolute; width: 14px; height: 14px; background: rgba(229, 62, 62, 0.7); border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); user-select: none; transform: translate(-50%, -50%); cursor: pointer; z-index: 15; }
-        #lines-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
-        .image-upload-input { display: block; margin-bottom: 20px; }
-        #step3-image-preview { min-height: 150px; border: 2px dashed #cbd5e0; padding: 10px; text-align: center; background: #f9f9f9; border-radius: 10px;}
-        .deformation-stage-wrapper { text-align: center; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 10px; }
-        .deformation-stage { position: relative; width: 100%; min-height: 600px; background-color: #f0f2f5; cursor: grab; }
-        .deformation-stage.is-panning { cursor: grabbing; }
-        #deformation-canvas { position: absolute; top: 0; left: 0; }
-        .control-point { position: absolute; width: 12px; height: 12px; background: rgba(255, 255, 255, 0.5); border: 2px solid #e53e3e; border-radius: 50%; cursor: crosshair; transform: translate(-50%, -50%); z-index: 20; }
-        .controls-panel, .zoom-controls { background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: center; border: 1px solid #e2e8f0; }
-        .control-group { display: flex; flex-direction: column; }
-        .control-group label { margin-bottom: 8px; font-weight: 600; color: #4a5568; }
-        .pan-controls button { width: 40px; height: 40px; font-size: 20px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-        .zoom-controls { grid-template-columns: 1fr auto; }
-        .action-button { display: inline-block; padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; background: #5a67d8; color: white; margin-left: 10px; }
-        .action-button:disabled { background: #cbd5e0; color: #a0aec0; cursor: not-allowed; }
-        .clear-points-btn { background: #e53e3e; }
-        .new-project-btn { background: #f6ad55; }
-        #finalResult { text-align: center; padding: 10px; background: #f7fafc; border-radius: 10px; border: 1px solid #e2e8f0; min-height: 200px; display: flex; align-items: center; justify-content: center; }
-        #result-canvas { max-width: 100%; border-radius: 8px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); background: black; }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <h1>GOBO Калькулятор-редактор</h1>
-        <nav class="progress-bar" id="progressBar"></nav>
-    </header>
-    <div class="container">
-        <div class="toolbar">
-            <button class="action-button new-project-btn" onclick="startNewProject()">Начать новый проект</button>
-        </div>
-        <div id="steps-container"></div>
-    </div>
-
-<script>
 // ===================================================================
 // == КОНФИГУРАЦИЯ И ШАБЛОНЫ ==
 // ===================================================================
@@ -86,8 +10,8 @@ const STEPS_HTML = {
     1: `<h2><span class="step-number">1</span>Эталонная фотография</h2><p>Загрузите фотографию, сделанную с помощью «Умной Насадки».</p><div class="photo-upload-area" id="photoUploadArea"><h3>📸 Перетащите фото сюда или кликните</h3></div><input type="file" id="photoInput" accept="image/*" style="display: none;">`,
     2: `<h2><span class="step-number">2</span>Назначение точек контура</h2><p>Кликните по углам контура на фотографии (минимум 3 точки).</p><div id="photo-container"><img id="step2-photo" alt="Фото контура"><svg id="lines-svg"></svg></div><div style="text-align: right; margin-top: 20px;"><button class="action-button clear-points-btn" onclick="clearAllPoints()">Очистить</button><button class="action-button" id="step2-next" disabled>Далее</button></div>`,
     3: `<h2><span class="step-number">3</span>Загрузка изображения для гобо</h2><p>Загрузите исходное изображение (например, логотип).</p><input type="file" id="step3-image-input" class="image-upload-input" accept="image/*"><div id="step3-image-preview"><p>Предпросмотр...</p></div>`,
-    4: `<h2><span class="step-number">4</span>Позиционирование и деформация</h2><p><b>Колесо мыши</b> - зум. <b>Зажмите Alt + левая кнопка</b> - перемещение холста.</p><div class="deformation-stage-wrapper"><div class="deformation-stage" id="deformationStage"><canvas id="deformation-canvas"></canvas></div></div><div class="zoom-controls"><div class="control-group"><label>Масштаб редактора: <span id="zoomLevel">100</span>%</label><input type="range" id="zoomSlider" min="10" max="500" value="100"></div><button class="action-button" onclick="resetEditorView()">Сбросить вид</button></div><div class="controls-panel"><div class="control-group"><label>Прозрачность: <span id="opacityValue">100</span>%</label><input type="range" id="opacitySlider" min="0" max="100" value="100"></div><div class="control-group"><label>Масштаб: <span id="scaleValue">100</span>%</label><input type="range" id="scaleSlider" min="50" max="150" value="100"></div><div class="control-group"><label>Вращение: <span id="rotationValue">0</span>°</label><input type="range" id="rotationSlider" min="-180" max="180" value="0"></div><div class="control-group pan-controls"><label>Перемещение</label><div><button onclick="panImage(0, -5)">↑</button><button onclick="panImage(0, 5)">↓</button><button onclick="panImage(-5, 0)">←</button><button onclick="panImage(5, 0)">→</button></div></div></div><div style="text-align: right;"><button class="action-button" id="step4-next">Далее</button></div>`,
-    5: `<h2><span class="step-number">5</span>Предпросмотр и экспорт</h2><p>Укажите параметры печати и скачайте готовый к производству файл.</p><div class="form-row"><div class="form-group"><label>DPI:</label><input type="number" id="printDPI" value="2700"></div><div class="form-group"><label>Диаметр слайда (мм):</label><input type="number" id="slideDiameter" value="37.5"></div><div class="form-group"><label>Диаметр печати (мм):</label><input type="number" id="printDiameter" value="32"></div><div class="form-group"><label>Метка:</label><input type="text" id="alignMark" value="PLT"></div></div><div id="finalResult"><canvas id="result-canvas"></canvas></div><div style="text-align: right;"><button class="action-button" onclick="exportFinalGobo()">Скачать .TIFF</button></div>`
+    4: `<h2><span class="step-number">4</span>Позиционирование и деформация</h2><p><b>Колесо мыши</b> - зум. <b>Зажмите Alt + левая кнопка</b> - перемещение холста.</p><div class="deformation-stage-wrapper"><div class="deformation-stage" id="deformationStage"><canvas id="deformation-canvas"></canvas></div></div><div class="zoom-controls"><div class="control-group"><label>Масштаб редактора: <span id="zoomLevel">100</span>%</label><input type="range" id="zoomSlider" min="10" max="500" value="100"></div><button class="action-button" onclick="resetEditorView()">Сбросить вид</button></div><div class="controls-panel"><div class="control-group"><label>Прозрачность изображения: <span id="opacityValue">100</span>%</label><input type="range" id="opacitySlider" min="0" max="100" value="100"></div><div class="control-group"><label>Масштаб изображения: <span id="scaleValue">100</span>%</label><input type="range" id="scaleSlider" min="50" max="150" value="100"></div><div class="control-group"><label>Вращение изображения: <span id="rotationValue">0</span>°</label><input type="range" id="rotationSlider" min="-180" max="180" value="0"></div><div class="control-group pan-controls"><label>Перемещение изображения</label><div><button onclick="panImage(0, -5)">↑</button><button onclick="panImage(0, 5)">↓</button><button onclick="panImage(-5, 0)">←</button><button onclick="panImage(5, 0)">→</button></div></div></div><div style="text-align: right;"><button class="action-button" id="step4-next">Далее</button></div>`,
+    5: `<h2><span class="step-number">5</span>Предпросмотр и экспорт</h2><p>Укажите параметры печати и скачайте готовый к производству файл.</p><div class="form-row"><div class="form-group"><label for="printDPI">Разрешение (DPI):</label><input type="number" id="printDPI" value="2700"></div><div class="form-group"><label for="slideDiameter">Диаметр слайда (мм):</label><input type="number" id="slideDiameter" value="37.5"></div><div class="form-group"><label for="printDiameter">Диаметр печати (мм):</label><input type="number" id="printDiameter" value="32"></div><div class="form-group"><label for="alignMark">Метка:</label><input type="text" id="alignMark" value="PLT"></div></div><div id="finalResult"><canvas id="result-canvas"></canvas></div><div style="text-align: right;"><button class="action-button" onclick="exportFinalGobo()">Скачать .TIFF</button></div>`
 };
 
 // ===================================================================
@@ -102,7 +26,7 @@ let state = {
     deformationPoints: [],
     editorView: { zoom: 1, pan: { x: 0, y: 0 } }
 };
-let userImageElement = null; // HTML Image object
+let userImageElement = null;
 let activeControlPoint = null, isPanning = false, panStart = {x:0, y:0};
 
 // ===================================================================
@@ -111,8 +35,10 @@ let activeControlPoint = null, isPanning = false, panStart = {x:0, y:0};
 document.addEventListener('DOMContentLoaded', initApp);
 
 function initApp() {
-    buildInitialUI();
-    loadState();
+    // ИСПРАВЛЕННЫЙ ПОРЯДОК
+    buildInitialUI();      // 1. Сначала строим HTML-каркас. Теперь все ID существуют.
+    setupEventListeners(); // 2. Теперь привязываем обработчики к существующим элементам.
+    loadState();           // 3. Загружаем данные и обновляем UI.
 }
 
 function buildInitialUI() {
@@ -120,16 +46,12 @@ function buildInitialUI() {
     const progressBar = document.getElementById('progressBar');
     stepsContainer.innerHTML = '';
     progressBar.innerHTML = '';
-
     STEPS_CONFIG.forEach(step => {
-        // Создаем шаги в основном контейнере
         const section = document.createElement('section');
         section.className = 'step-section is-locked';
         section.id = `step${step.id}`;
         section.innerHTML = STEPS_HTML[step.id];
         stepsContainer.appendChild(section);
-
-        // Создаем навигацию в шапке
         const navLink = document.createElement('a');
         navLink.href = `#step${step.id}`;
         navLink.dataset.step = step.id;
@@ -139,7 +61,7 @@ function buildInitialUI() {
 }
 
 // ===================================================================
-// УПРАВЛЕНИЕ СОСТОЯНИЕМ (localStorage)
+//  КЛЮЧЕВАЯ НОВАЯ ФУНКЦИЯ: НАЧАТЬ НОВЫЙ ПРОЕКТ
 // ===================================================================
 function startNewProject() {
     if (confirm("Вы уверены? Весь текущий прогресс будет удален.")) {
@@ -147,78 +69,24 @@ function startNewProject() {
         window.location.reload();
     }
 }
-function saveState() {
-    // Сохраняем только данные, а не DOM-элементы
-    const stateToSave = {
-        currentStep: state.currentStep,
-        photoData: state.photoData,
-        userImageSrc: state.userImageSrc,
-        assignedPoints: state.assignedPoints.map(p => ({ x: p.x, y: p.y })),
-        deformationPoints: state.deformationPoints,
-        transform: state.transform
-    };
-    localStorage.setItem('goboProjectState', JSON.stringify(stateToSave));
-}
-
-function loadState() {
-    const saved = localStorage.getItem('goboProjectState');
-    if (!saved) {
-        renderUI();
-        return;
-    }
-    const loadedState = JSON.parse(saved);
-    
-    // Восстанавливаем данные
-    state.currentStep = loadedState.currentStep || 1;
-    state.photoData = loadedState.photoData;
-    state.userImageSrc = loadedState.userImageSrc;
-    state.assignedPoints = loadedState.assignedPoints || [];
-    state.deformationPoints = loadedState.deformationPoints || [];
-    state.transform = loadedState.transform || state.transform;
-
-    // После восстановления данных, рендерим весь UI
-    renderUI();
-}
 
 // ===================================================================
-// ГЛАВНАЯ ФУНКЦИЯ РЕНДЕРИНГА ИНТЕРФЕЙСА
+// УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ
 // ===================================================================
-function renderUI() {
-    // Показываем все пройденные шаги
-    for (let i = 1; i <= state.currentStep; i++) {
-        document.getElementById(`step${i}`).classList.remove('is-locked');
+function unlockStep(stepNumber) {
+    if (stepNumber > 5) return;
+    const section = document.getElementById(`step${stepNumber}`);
+    if (section && section.classList.contains('is-locked')) {
+        section.classList.remove('is-locked');
     }
-    updateProgressUI(state.currentStep);
-    
-    // Заполняем данными уже пройденные шаги
-    if (state.photoData) {
-        const photoUploadArea = document.getElementById('photoUploadArea');
-        photoUploadArea.innerHTML = `<img src="${state.photoData}" style="max-width:100%; border-radius:10px;">`;
-        const step2Photo = document.getElementById('step2-photo');
-        step2Photo.src = state.photoData;
-        step2Photo.onload = () => {
-            if (state.assignedPoints.length > 0) {
-                state.assignedPoints.forEach(p => createPointElement(p.x, p.y));
-                document.getElementById('step2-next').disabled = false;
-            }
-            if (state.currentStep >= 4) {
-                initEditor();
-            }
-        };
-    }
-    if (state.userImageSrc) {
-        userImageElement = new Image();
-        userImageElement.src = state.userImageSrc;
-        userImageElement.onload = () => {
-            document.getElementById('step3-image-preview').innerHTML = `<img src="${userImageElement.src}" style="max-width:100%; border-radius: 8px;">`;
-            if (state.currentStep >= 4) {
-                 initEditor();
-            }
-        };
-    }
-
-    // Привязываем все обработчики событий
-    setupEventListeners();
+    setTimeout(() => {
+        const header = document.querySelector('.header');
+        const sectionTop = section.getBoundingClientRect().top + window.pageYOffset - header.offsetHeight;
+        window.scrollTo({ top: sectionTop, behavior: 'smooth' });
+    }, 100);
+    state.currentStep = stepNumber;
+    updateProgressUI(stepNumber);
+    saveState();
 }
 
 function updateProgressUI(activeStep) {
@@ -241,26 +109,155 @@ function updateProgressUI(activeStep) {
 
 
 // ===================================================================
-// ОБРАБОТЧИКИ СОБЫТИЙ (Привязываются один раз)
+// СОХРАНЕНИЕ И ЗАГРУЗКА СОСТОЯНИЯ
+// ===================================================================
+function saveState() {
+    const stateToSave = {
+        currentStep: state.currentStep,
+        photoData: state.photoData,
+        userImageSrc: state.userImageSrc,
+        assignedPoints: state.assignedPoints.map(p => ({ x: p.x, y: p.y })),
+        deformationPoints: state.deformationPoints,
+        transform: state.transform
+    };
+    localStorage.setItem('goboProjectState', JSON.stringify(stateToSave));
+}
+
+function loadState() {
+    const saved = localStorage.getItem('goboProjectState');
+    if (!saved) {
+        unlockStep(1); // Просто показываем первый шаг
+        return;
+    }
+    const loadedState = JSON.parse(saved);
+    state = {...state, ...loadedState};
+    
+    let imagesToLoad = 0;
+    if (state.photoData) imagesToLoad++;
+    if (state.userImageSrc) imagesToLoad++;
+
+    if (imagesToLoad === 0) {
+        renderUI();
+        return;
+    }
+
+    let imagesLoaded = 0;
+    const onImageLoaded = () => {
+        imagesLoaded++;
+        if (imagesLoaded === imagesToLoad) {
+            renderUI();
+        }
+    };
+
+    if (state.photoData) {
+        const bgImg = new Image();
+        bgImg.src = state.photoData;
+        bgImg.onload = onImageLoaded;
+    }
+    if (state.userImageSrc) {
+        userImageElement = new Image();
+        userImageElement.src = state.userImageSrc;
+        userImageElement.onload = onImageLoaded;
+    }
+}
+
+function renderUI() {
+    if (state.photoData) {
+        document.getElementById('photoUploadArea').innerHTML = `<img src="${state.photoData}" style="max-width:100%; border-radius:10px;">`;
+        document.getElementById('step2-photo').src = state.photoData;
+    }
+    const photoContainer = document.getElementById('photo-container');
+    while (photoContainer.querySelector('.assigned-point')) {
+        photoContainer.querySelector('.assigned-point').remove();
+    }
+    if (state.assignedPoints && state.assignedPoints.length > 0) {
+        state.assignedPoints.forEach(coord => createPointElement(coord.x, coord.y));
+        document.getElementById('step2-next').disabled = state.assignedPoints.length < 3;
+    }
+    if (userImageElement && userImageElement.src) {
+        document.getElementById('step3-image-preview').innerHTML = `<img src="${userImageElement.src}" style="max-width:100%; border-radius: 8px;">`;
+    }
+    for (let i = 1; i <= state.currentStep; i++) {
+        document.getElementById(`step${i}`)?.classList.remove('is-locked');
+    }
+    updateProgressUI(state.currentStep);
+    
+    // Инициализация редактора и превью, если нужно
+    if (state.currentStep >= 4) setTimeout(initEditor, 100);
+    if (state.currentStep === 5) setTimeout(generateFinalResultPreview, 150);
+
+    setTimeout(() => {
+        const targetEl = document.getElementById(`step${state.currentStep}`);
+        if(targetEl) targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }, 200);
+}
+
+// ===================================================================
+// ОБРАБОТЧИКИ СОБЫТИЙ
 // ===================================================================
 function setupEventListeners() {
-    // Шаг 1
     document.getElementById('photoUploadArea').onclick = () => document.getElementById('photoInput').click();
     document.getElementById('photoInput').onchange = handlePhotoUpload;
-    // Шаг 2
     document.getElementById('step2-photo').onclick = handlePointAssignment;
     document.getElementById('step2-next').onclick = () => unlockStep(3);
-    // Шаг 3
     document.getElementById('step3-image-input').onchange = handleGoboImageUpload;
-    // Шаг 4
     document.getElementById('step4-next').onclick = () => {
         generateFinalResultPreview();
         unlockStep(5);
     };
+    setupEditorControls();
 }
-
-function handlePhotoUpload(e) { /* ... */ } // и другие обработчики
-// ... (здесь будет весь остальной JS, который уже отлажен)
+function handlePhotoUpload(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        state.photoData = ev.target.result;
+        document.getElementById('photoUploadArea').innerHTML = `<img src="${state.photoData}" style="max-width:100%; border-radius:10px;">`;
+        document.getElementById('step2-photo').src = state.photoData;
+        unlockStep(2);
+    };
+    reader.readAsDataURL(file);
+}
+function handlePointAssignment(event) {
+    const photoElement = event.target; const rect = photoElement.getBoundingClientRect();
+    const x = event.clientX - rect.left; const y = event.clientY - rect.top;
+    createPointElement(x, y);
+    state.assignedPoints.push({ x, y });
+    document.getElementById('step2-next').disabled = state.assignedPoints.length < 3;
+    saveState();
+}
+function createPointElement(x, y) {
+    const pointEl = document.createElement('div');
+    pointEl.className = 'assigned-point';
+    pointEl.textContent = state.assignedPoints.length + 1;
+    pointEl.style.left = `${x}px`;
+    pointEl.style.top = `${y}px`;
+    document.getElementById('photo-container').appendChild(pointEl);
+}
+function clearAllPoints() {
+    document.querySelectorAll('#photo-container .assigned-point').forEach(el => el.remove());
+    state.assignedPoints = [];
+    document.getElementById('step2-next').disabled = true;
+    saveState();
+}
+function handleGoboImageUpload(event) {
+    const file = event.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        state.userImageSrc = e.target.result;
+        userImageElement = new Image();
+        userImageElement.src = state.userImageSrc;
+        userImageElement.onload = () => {
+            document.getElementById('step3-image-preview').innerHTML = `<img src="${userImageElement.src}" style="max-width:100%; border-radius: 8px;">`;
+            unlockStep(4);
+            setTimeout(initEditor, 50);
+        };
+    };
+    reader.readAsDataURL(file);
+}
+// ... Остальной JS код (весь редактор и экспорт) остается здесь ...
+// Он слишком большой для повторной вставки, но он должен быть здесь целиком.
+// Важно, чтобы все функции, начиная с initEditor и до конца, были тут.
 
 </script>
 </body>
