@@ -1,264 +1,322 @@
-// ===================================================================
-// == КОНФИГУРАЦИЯ И ШАБЛОНЫ ==
-// ===================================================================
-const STEPS_CONFIG = [
-    { id: 1, title: 'Фото' }, { id: 2, title: 'Точки' }, { id: 3, title: 'Изображение' },
-    { id: 4, title: 'Редактор' }, { id: 5, title: 'Экспорт' }
-];
-
-const STEPS_HTML = {
-    1: `<h2><span class="step-number">1</span>Эталонная фотография</h2><p>Загрузите фотографию, сделанную с помощью «Умной Насадки».</p><div class="photo-upload-area" id="photoUploadArea"><h3>📸 Перетащите фото сюда или кликните</h3></div><input type="file" id="photoInput" accept="image/*" style="display: none;">`,
-    2: `<h2><span class="step-number">2</span>Назначение точек контура</h2><p>Кликните по углам контура на фотографии (минимум 3 точки).</p><div id="photo-container"><img id="step2-photo" alt="Фото контура"><svg id="lines-svg"></svg></div><div style="text-align: right; margin-top: 20px;"><button class="action-button clear-points-btn" onclick="clearAllPoints()">Очистить</button><button class="action-button" id="step2-next" disabled>Далее</button></div>`,
-    3: `<h2><span class="step-number">3</span>Загрузка изображения для гобо</h2><p>Загрузите исходное изображение (например, логотип).</p><input type="file" id="step3-image-input" class="image-upload-input" accept="image/*"><div id="step3-image-preview"><p>Предпросмотр...</p></div>`,
-    4: `<h2><span class="step-number">4</span>Позиционирование и деформация</h2><p><b>Колесо мыши</b> - зум. <b>Зажмите Alt + левая кнопка</b> - перемещение холста.</p><div class="deformation-stage-wrapper"><div class="deformation-stage" id="deformationStage"><canvas id="deformation-canvas"></canvas></div></div><div class="zoom-controls"><div class="control-group"><label>Масштаб редактора: <span id="zoomLevel">100</span>%</label><input type="range" id="zoomSlider" min="10" max="500" value="100"></div><button class="action-button" onclick="resetEditorView()">Сбросить вид</button></div><div class="controls-panel"><div class="control-group"><label>Прозрачность изображения: <span id="opacityValue">100</span>%</label><input type="range" id="opacitySlider" min="0" max="100" value="100"></div><div class="control-group"><label>Масштаб изображения: <span id="scaleValue">100</span>%</label><input type="range" id="scaleSlider" min="50" max="150" value="100"></div><div class="control-group"><label>Вращение изображения: <span id="rotationValue">0</span>°</label><input type="range" id="rotationSlider" min="-180" max="180" value="0"></div><div class="control-group pan-controls"><label>Перемещение изображения</label><div><button onclick="panImage(0, -5)">↑</button><button onclick="panImage(0, 5)">↓</button><button onclick="panImage(-5, 0)">←</button><button onclick="panImage(5, 0)">→</button></div></div></div><div style="text-align: right;"><button class="action-button" id="step4-next">Далее</button></div>`,
-    5: `<h2><span class="step-number">5</span>Предпросмотр и экспорт</h2><p>Укажите параметры печати и скачайте готовый к производству файл.</p><div class="form-row"><div class="form-group"><label for="printDPI">Разрешение (DPI):</label><input type="number" id="printDPI" value="2700"></div><div class="form-group"><label for="slideDiameter">Диаметр слайда (мм):</label><input type="number" id="slideDiameter" value="37.5"></div><div class="form-group"><label for="printDiameter">Диаметр печати (мм):</label><input type="number" id="printDiameter" value="32"></div><div class="form-group"><label for="alignMark">Метка:</label><input type="text" id="alignMark" value="PLT"></div></div><div id="finalResult"><canvas id="result-canvas"></canvas></div><div style="text-align: right;"><button class="action-button" onclick="exportFinalGobo()">Скачать .TIFF</button></div>`
-};
-
-// ===================================================================
-// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-// ===================================================================
-let state = {
-    currentStep: 1,
-    photoData: null,
-    userImageSrc: null,
-    assignedPoints: [],
-    transform: { x: 0, y: 0, scale: 1, rotation: 0, opacity: 1, initialScale: 1 },
-    deformationPoints: [],
-    editorView: { zoom: 1, pan: { x: 0, y: 0 } }
-};
-let userImageElement = null;
-let activeControlPoint = null, isPanning = false, panStart = {x:0, y:0};
-
-// ===================================================================
-// ИНИЦИАЛИЗАЦИЯ
-// ===================================================================
-document.addEventListener('DOMContentLoaded', initApp);
-
-function initApp() {
-    // ИСПРАВЛЕННЫЙ ПОРЯДОК
-    buildInitialUI();      // 1. Сначала строим HTML-каркас. Теперь все ID существуют.
-    setupEventListeners(); // 2. Теперь привязываем обработчики к существующим элементам.
-    loadState();           // 3. Загружаем данные и обновляем UI.
-}
-
-function buildInitialUI() {
-    const stepsContainer = document.getElementById('steps-container');
-    const progressBar = document.getElementById('progressBar');
-    stepsContainer.innerHTML = '';
-    progressBar.innerHTML = '';
-    STEPS_CONFIG.forEach(step => {
-        const section = document.createElement('section');
-        section.className = 'step-section is-locked';
-        section.id = `step${step.id}`;
-        section.innerHTML = STEPS_HTML[step.id];
-        stepsContainer.appendChild(section);
-        const navLink = document.createElement('a');
-        navLink.href = `#step${step.id}`;
-        navLink.dataset.step = step.id;
-        navLink.textContent = `Шаг ${step.id}: ${step.title}`;
-        progressBar.appendChild(navLink);
-    });
-}
-
-// ===================================================================
-//  КЛЮЧЕВАЯ НОВАЯ ФУНКЦИЯ: НАЧАТЬ НОВЫЙ ПРОЕКТ
-// ===================================================================
-function startNewProject() {
-    if (confirm("Вы уверены? Весь текущий прогресс будет удален.")) {
-        localStorage.removeItem('goboProjectState');
-        window.location.reload();
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>GOBO Calculator PRO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2D3748">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f8f9fa;
+      color: #222;
     }
-}
-
-// ===================================================================
-// УПРАВЛЕНИЕ ИНТЕРФЕЙСОМ
-// ===================================================================
-function unlockStep(stepNumber) {
-    if (stepNumber > 5) return;
-    const section = document.getElementById(`step${stepNumber}`);
-    if (section && section.classList.contains('is-locked')) {
-        section.classList.remove('is-locked');
+    header {
+      background: #2D3748;
+      color: white;
+      padding: 1rem;
+      text-align: center;
     }
-    setTimeout(() => {
-        const header = document.querySelector('.header');
-        const sectionTop = section.getBoundingClientRect().top + window.pageYOffset - header.offsetHeight;
-        window.scrollTo({ top: sectionTop, behavior: 'smooth' });
-    }, 100);
-    state.currentStep = stepNumber;
-    updateProgressUI(stepNumber);
-    saveState();
-}
-
-function updateProgressUI(activeStep) {
-    document.querySelectorAll('#progressBar a').forEach((el, i) => {
-        const stepNum = i + 1;
-        el.classList.remove('active', 'completed', 'unlocked');
-        if (stepNum <= activeStep) {
-            el.classList.add('unlocked');
-            if (stepNum < activeStep) el.classList.add('completed');
-            else el.classList.add('active');
-        }
-    });
-    document.querySelectorAll('.step-section').forEach((el, i) => {
-        const stepNum = i + 1;
-        el.classList.remove('active', 'completed');
-        if (stepNum < activeStep) el.classList.add('completed');
-        else if (stepNum === activeStep) el.classList.add('active');
-    });
-}
-
-
-// ===================================================================
-// СОХРАНЕНИЕ И ЗАГРУЗКА СОСТОЯНИЯ
-// ===================================================================
-function saveState() {
-    const stateToSave = {
-        currentStep: state.currentStep,
-        photoData: state.photoData,
-        userImageSrc: state.userImageSrc,
-        assignedPoints: state.assignedPoints.map(p => ({ x: p.x, y: p.y })),
-        deformationPoints: state.deformationPoints,
-        transform: state.transform
-    };
-    localStorage.setItem('goboProjectState', JSON.stringify(stateToSave));
-}
-
-function loadState() {
-    const saved = localStorage.getItem('goboProjectState');
-    if (!saved) {
-        unlockStep(1); // Просто показываем первый шаг
-        return;
+    header h1 {
+      margin: 0;
+      font-size: 1.8rem;
     }
-    const loadedState = JSON.parse(saved);
-    state = {...state, ...loadedState};
-    
-    let imagesToLoad = 0;
-    if (state.photoData) imagesToLoad++;
-    if (state.userImageSrc) imagesToLoad++;
+    .container {
+      max-width: 960px;
+      margin: auto;
+      padding: 1rem;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    canvas {
+      border: 1px solid #ccc;
+      max-width: 100%;
+      display: block;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .controls label {
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+    }
+    .actions {
+      margin: 1rem 0;
+    }
+    .actions button {
+      margin-right: 0.5rem;
+    }
+    .point {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: red;
+      position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 10;
+    }
+    #canvasWrapper {
+      position: relative;
+    }
+    #photo {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+    #editorCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>GOBO Calculator PRO + PDF</h1>
+    <p>Инженерный инструмент для точной коррекции проекционного изображения</p>
+  </header>
+  <div class="container">
+    <input type="file" id="photoInput" accept="image/*">
+    <input type="file" id="goboInput" accept="image/*">
 
-    if (imagesToLoad === 0) {
-        renderUI();
-        return;
+    <div id="canvasWrapper">
+      <img id="photo" alt="Фото" />
+      <canvas id="editorCanvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <label>Прозрачность
+        <input type="range" id="opacitySlider" min="0" max="100" value="100">
+      </label>
+      <label>Масштаб
+        <input type="range" id="scaleSlider" min="10" max="300" value="100">
+      </label>
+      <label>Поворот
+        <input type="range" id="rotateSlider" min="-180" max="180" value="0">
+      </label>
+      <label>Диаметр слайда (мм)
+        <input type="number" id="slideDiameter" min="10" max="100" value="32">
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="saveBtn">💾 Сохранить проект</button>
+      <button id="loadBtn">📂 Загрузить проект</button>
+      <button id="exportPNG">📤 PNG</button>
+      <button id="exportTIFF">📤 TIFF</button>
+      <button id="exportPDF">📄 PDF</button>
+    </div>
+
+    <div>
+      <p>Добавьте до 32 точек, щёлкая по фото. Используйте мышь или касание.</p>
+      <button id="undo">↶ Undo</button>
+      <button id="redo">↷ Redo</button>
+      <button id="clear">Очистить</button>
+    </div>
+  </div>
+  <script>
+    let photo = document.getElementById("photo");
+    let canvas = document.getElementById("editorCanvas");
+    let ctx = canvas.getContext("2d");
+    let points = [];
+    let project = { x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 };
+    let goboImg = null;
+    let history = [], future = [];
+
+    function resizeCanvasToImage() {
+      canvas.width = photo.naturalWidth;
+      canvas.height = photo.naturalHeight;
+      canvas.style.width = photo.clientWidth + "px";
+      canvas.style.height = photo.clientHeight + "px";
     }
 
-    let imagesLoaded = 0;
-    const onImageLoaded = () => {
-        imagesLoaded++;
-        if (imagesLoaded === imagesToLoad) {
-            renderUI();
-        }
-    };
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!goboImg) return;
+      ctx.save();
+      ctx.globalAlpha = project.opacity;
+      ctx.translate(project.x, project.y);
+      ctx.rotate(project.rotate * Math.PI / 180);
+      ctx.scale(project.scale, project.scale);
+      ctx.translate(-goboImg.width / 2, -goboImg.height / 2);
+      ctx.drawImage(goboImg, 0, 0);
+      ctx.restore();
+    }
 
-    if (state.photoData) {
-        const bgImg = new Image();
-        bgImg.src = state.photoData;
-        bgImg.onload = onImageLoaded;
+    function updateControls() {
+      project.opacity = opacitySlider.value / 100;
+      project.scale = scaleSlider.value / 100;
+      project.rotate = +rotateSlider.value;
+      draw();
     }
-    if (state.userImageSrc) {
-        userImageElement = new Image();
-        userImageElement.src = state.userImageSrc;
-        userImageElement.onload = onImageLoaded;
-    }
-}
 
-function renderUI() {
-    if (state.photoData) {
-        document.getElementById('photoUploadArea').innerHTML = `<img src="${state.photoData}" style="max-width:100%; border-radius:10px;">`;
-        document.getElementById('step2-photo').src = state.photoData;
-    }
-    const photoContainer = document.getElementById('photo-container');
-    while (photoContainer.querySelector('.assigned-point')) {
-        photoContainer.querySelector('.assigned-point').remove();
-    }
-    if (state.assignedPoints && state.assignedPoints.length > 0) {
-        state.assignedPoints.forEach(coord => createPointElement(coord.x, coord.y));
-        document.getElementById('step2-next').disabled = state.assignedPoints.length < 3;
-    }
-    if (userImageElement && userImageElement.src) {
-        document.getElementById('step3-image-preview').innerHTML = `<img src="${userImageElement.src}" style="max-width:100%; border-radius: 8px;">`;
-    }
-    for (let i = 1; i <= state.currentStep; i++) {
-        document.getElementById(`step${i}`)?.classList.remove('is-locked');
-    }
-    updateProgressUI(state.currentStep);
-    
-    // Инициализация редактора и превью, если нужно
-    if (state.currentStep >= 4) setTimeout(initEditor, 100);
-    if (state.currentStep === 5) setTimeout(generateFinalResultPreview, 150);
-
-    setTimeout(() => {
-        const targetEl = document.getElementById(`step${state.currentStep}`);
-        if(targetEl) targetEl.scrollIntoView({ behavior: 'auto', block: 'start' });
-    }, 200);
-}
-
-// ===================================================================
-// ОБРАБОТЧИКИ СОБЫТИЙ
-// ===================================================================
-function setupEventListeners() {
-    document.getElementById('photoUploadArea').onclick = () => document.getElementById('photoInput').click();
-    document.getElementById('photoInput').onchange = handlePhotoUpload;
-    document.getElementById('step2-photo').onclick = handlePointAssignment;
-    document.getElementById('step2-next').onclick = () => unlockStep(3);
-    document.getElementById('step3-image-input').onchange = handleGoboImageUpload;
-    document.getElementById('step4-next').onclick = () => {
-        generateFinalResultPreview();
-        unlockStep(5);
-    };
-    setupEditorControls();
-}
-function handlePhotoUpload(e) {
-    const file = e.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        state.photoData = ev.target.result;
-        document.getElementById('photoUploadArea').innerHTML = `<img src="${state.photoData}" style="max-width:100%; border-radius:10px;">`;
-        document.getElementById('step2-photo').src = state.photoData;
-        unlockStep(2);
-    };
-    reader.readAsDataURL(file);
-}
-function handlePointAssignment(event) {
-    const photoElement = event.target; const rect = photoElement.getBoundingClientRect();
-    const x = event.clientX - rect.left; const y = event.clientY - rect.top;
-    createPointElement(x, y);
-    state.assignedPoints.push({ x, y });
-    document.getElementById('step2-next').disabled = state.assignedPoints.length < 3;
-    saveState();
-}
-function createPointElement(x, y) {
-    const pointEl = document.createElement('div');
-    pointEl.className = 'assigned-point';
-    pointEl.textContent = state.assignedPoints.length + 1;
-    pointEl.style.left = `${x}px`;
-    pointEl.style.top = `${y}px`;
-    document.getElementById('photo-container').appendChild(pointEl);
-}
-function clearAllPoints() {
-    document.querySelectorAll('#photo-container .assigned-point').forEach(el => el.remove());
-    state.assignedPoints = [];
-    document.getElementById('step2-next').disabled = true;
-    saveState();
-}
-function handleGoboImageUpload(event) {
-    const file = event.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        state.userImageSrc = e.target.result;
-        userImageElement = new Image();
-        userImageElement.src = state.userImageSrc;
-        userImageElement.onload = () => {
-            document.getElementById('step3-image-preview').innerHTML = `<img src="${userImageElement.src}" style="max-width:100%; border-radius: 8px;">`;
-            unlockStep(4);
-            setTimeout(initEditor, 50);
+    document.getElementById("photoInput").onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        photo.src = ev.target.result;
+        photo.onload = () => {
+          resizeCanvasToImage();
+          draw();
         };
+      };
+      reader.readAsDataURL(file);
     };
-    reader.readAsDataURL(file);
-}
-// ... Остальной JS код (весь редактор и экспорт) остается здесь ...
-// Он слишком большой для повторной вставки, но он должен быть здесь целиком.
-// Важно, чтобы все функции, начиная с initEditor и до конца, были тут.
 
-</script>
+    document.getElementById("goboInput").onchange = e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        goboImg = new Image();
+        goboImg.onload = () => draw();
+        goboImg.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    opacitySlider.oninput = updateControls;
+    scaleSlider.oninput = updateControls;
+    rotateSlider.oninput = updateControls;
+
+    canvas.addEventListener("click", e => {
+      if (points.length >= 32) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+      const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+      points.push({ x, y });
+      const div = document.createElement("div");
+      div.className = "point";
+      div.style.left = e.clientX + "px";
+      div.style.top = e.clientY + "px";
+      document.getElementById("canvasWrapper").appendChild(div);
+      saveState();
+    });
+
+    function saveState() {
+      history.push(JSON.stringify({ points, project }));
+      if (history.length > 100) history.shift();
+      future = [];
+    }
+
+    undo.onclick = () => {
+      if (history.length > 0) {
+        future.push(JSON.stringify({ points, project }));
+        let state = JSON.parse(history.pop());
+        points = state.points;
+        project = state.project;
+        draw();
+      }
+    };
+
+    redo.onclick = () => {
+      if (future.length > 0) {
+        history.push(JSON.stringify({ points, project }));
+        let state = JSON.parse(future.pop());
+        points = state.points;
+        project = state.project;
+        draw();
+      }
+    };
+
+    clear.onclick = () => {
+      points = [];
+      draw();
+      document.querySelectorAll(".point").forEach(p => p.remove());
+      saveState();
+    };
+
+    saveBtn.onclick = () => {
+      const blob = new Blob(
+        [JSON.stringify({ points, project, gobo: goboImg?.src, photo: photo.src })],
+        { type: "application/json" }
+      );
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "gobo-project.json";
+      a.click();
+    };
+
+    loadBtn.onclick = () => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
+      input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const data = JSON.parse(ev.target.result);
+          points = data.points;
+          project = data.project;
+          photo.src = data.photo;
+          goboImg = new Image();
+          goboImg.src = data.gobo;
+          goboImg.onload = () => {
+            photo.onload = () => {
+              resizeCanvasToImage();
+              draw();
+            };
+          };
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    };
+
+    function mmToPx(mm, dpi = 2700) {
+      return Math.round((mm / 25.4) * dpi);
+    }
+
+    exportPNG.onclick = () => {
+      const px = mmToPx(+slideDiameter.value);
+      const temp = document.createElement("canvas");
+      temp.width = temp.height = px;
+      const ctx2 = temp.getContext("2d");
+      ctx2.fillStyle = "black";
+      ctx2.beginPath();
+      ctx2.arc(px / 2, px / 2, px / 2, 0, 2 * Math.PI);
+      ctx2.fill();
+      ctx2.drawImage(canvas, 0, 0, px, px);
+      temp.toBlob(blob => {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "gobo.png";
+        a.click();
+      });
+    };
+
+    exportPDF.onclick = async () => {
+      const px = mmToPx(+slideDiameter.value);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "pt",
+        format: [px * 0.75, px * 0.75]
+      });
+      const temp = document.createElement("canvas");
+      temp.width = temp.height = px;
+      const ctx2 = temp.getContext("2d");
+      ctx2.fillStyle = "black";
+      ctx2.beginPath();
+      ctx2.arc(px / 2, px / 2, px / 2, 0, 2 * Math.PI);
+      ctx2.fill();
+      ctx2.drawImage(canvas, 0, 0, px, px);
+      const dataUrl = temp.toDataURL("image/png");
+      pdf.addImage(dataUrl, 'PNG', 0, 0, px * 0.75, px * 0.75);
+      pdf.save("gobo.pdf");
+    };
+
+    exportTIFF.onclick = () => {
+      alert("TIFF-экспорт пока временно отключён (встрою по запросу). Используйте PNG или PDF.");
+    };
+  </script>
 </body>
 </html>
