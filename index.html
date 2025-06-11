@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOBO Профессиональный калькулятор-редактор</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-to-tiff@1.1.1/dist/canvas-to-tiff.min.js"></script>
+    
+    <style>
+        /* Общие стили для страницы */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+        
+        /* Шапка */
+        .header { background: rgba(255, 255, 255, 0.98); padding: 20px 30px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 30px; border-bottom: 1px solid rgba(0,0,0,0.05); }
+        .header h1 { color: #5a67d8; margin-bottom: 10px; }
+        .header p { color: #555; font-size: 16px; max-width: 600px; margin: 0 auto; }
+        
+        /* Основной контейнер */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        
+        /* Индикатор прогресса */
+        .progress-bar { display: flex; justify-content: center; margin-bottom: 30px; gap: 10px; }
+        .progress-step { width: 40px; height: 40px; border-radius: 50%; background: rgba(255, 255, 255, 0.3); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; transition: all 0.3s ease; border: 2px solid transparent; }
+        .progress-step.active { background: #48bb78; transform: scale(1.1); box-shadow: 0 0 15px rgba(72, 187, 120, 0.5); border-color: rgba(255,255,255,0.5); }
+        .progress-step.completed { background: #38a169; }
+        
+        /* Окна шагов */
+        .step-content { background: #fff; padding: 30px; border-radius: 16px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); margin-bottom: 20px; display: none; }
+        .step-content.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .step-content h2 { color: #5a67d8; margin-bottom: 10px; font-size: 26px; }
+        .step-content > p { color: #666; margin-bottom: 25px; }
+
+        /* Элементы форм */
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #4a5568; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 16px; transition: all 0.2s ease; background: #f7fafc; }
+        .form-group input:focus { outline: none; border-color: #5a67d8; background: #fff; box-shadow: 0 0 0 3px rgba(90, 103, 216, 0.2); }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        
+        /* Стили для загрузки и предпросмотра фото */
+        .photo-upload-area { border: 3px dashed #cbd5e0; border-radius: 10px; padding: 40px; text-align: center; background: #f7fafc; transition: all 0.3s ease; cursor: pointer; }
+        .photo-upload-area:hover { border-color: #5a67d8; background: #edf2f7; }
+        #photo-container { position: relative; display: inline-block; margin: 20px 0; user-select: none; }
+        #step3-photo { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .assigned-point { position: absolute; width: 14px; height: 14px; background: #e53e3e; color: white; border-radius: 50%; text-align: center; line-height: 14px; font-size: 9px; font-weight: bold; cursor: pointer; z-index: 10; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s ease; user-select: none; transform: translate(-50%, -50%); }
+        .assigned-point:hover { transform: translate(-50%, -50%) scale(1.2); }
+        #lines-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+        .points-info { background: #e6fffa; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #38b2ac; }
+        .clear-points-btn { background: #e53e3e; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; margin: 0 15px 0 0; }
+        .image-upload-input { display: block; margin: 20px 0; }
+        
+        /* Стили для редактора (Шаг 5) */
+        .deformation-stage-wrapper { text-align: center; }
+        .deformation-stage { position: relative; margin: 20px auto; border: 2px solid #e2e8f0; border-radius: 10px; overflow: hidden; display: inline-block; background-color: #eee; }
+        #deformation-canvas { display: block; max-width: 100%; height: auto; }
+        .control-point { position: absolute; width: 16px; height: 16px; border: 2px solid white; border-radius: 50%; background: #e53e3e; cursor: grab; z-index: 20; box-shadow: 0 2px 5px rgba(0,0,0,0.3); touch-action: none; transform: translate(-50%, -50%); }
+        .control-point:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.1); background: #c53030; }
+        .controls-panel { background: #f7fafc; padding: 20px; border-radius: 10px; margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; align-items: center; border: 1px solid #e2e8f0; }
+        .control-group { display: flex; flex-direction: column; }
+        .control-group label { margin-bottom: 8px; font-weight: 600; color: #4a5568; }
+        .control-group input[type="range"] { width: 100%; }
+        .pan-controls button { width: 40px; height: 40px; font-size: 20px; line-height: 40px; text-align: center; border: 1px solid #ccc; border-radius: 6px; background: #fff; cursor: pointer;}
+        .pan-controls button:hover { background: #eee; }
+        
+        /* Навигация */
+        .step-navigation { display: flex; justify-content: space-between; margin-top: 30px; }
+        .step-navigation button { padding: 12px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; }
+        .step-navigation button:first-child { background: #718096; color: white; }
+        .step-navigation button:last-child { background: #48bb78; color: white; }
+        .step-navigation button:disabled { background: #cbd5e0; color: #a0aec0; cursor: not-allowed; }
+        
+        /* Финальный результат */
+        #finalResult { text-align: center; padding: 10px; background: #f7fafc; border-radius: 10px; border: 1px solid #e2e8f0; min-height: 200px; display: flex; align-items: center; justify-content: center; }
+        #result-canvas { max-width: 100%; border-radius: 8px; box-shadow: 0 8px 25px rgba(0,0,0,0.1); background: black; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>GOBO Профессиональный калькулятор-редактор</h1>
+        <p>Профессиональный инструмент для создания предыскаженных изображений для гобо-проекции.</p>
+    </div>
+
+    <div class="container">
+        <div class="progress-bar">
+            <div class="progress-step active" id="progress1">1</div>
+            <div class="progress-step" id="progress2">2</div>
+            <div class="progress-step" id="progress3">3</div>
+            <div class="progress-step" id="progress4">4</div>
+            <div class="progress-step" id="progress5">5</div>
+            <div class="progress-step" id="progress6">6</div>
+        </div>
+
+        <div class="step-content active" id="step1">
+            <h2>Шаг 1: Параметры проекции (для справки)</h2>
+            <p>Эти данные могут понадобиться для справки или будущих автоматических расчетов.</p>
+            <div class="form-row">
+                <div class="form-group"><label>Ширина проекции (мм):</label><input type="number" id="projectionWidth" value="2000"></div>
+                <div class="form-group"><label>Высота проекции (мм):</label><input type="number" id="projectionHeight" value="1500"></div>
+            </div>
+             <div class="step-navigation">
+                <button disabled>Назад</button>
+                <button onclick="showStep(2)">Далее</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step2">
+            <h2>Шаг 2: Эталонная фотография</h2>
+            <p>Загрузите фотографию, сделанную с помощью «Умной Насадки» из точного положения объектива проектора.</p>
+            <div class="photo-upload-area" id="photoUploadArea">
+                <div id="uploadPrompt"><h3>📸 Перетащите фото сюда или кликните для выбора</h3></div>
+                <div id="photoPreview" style="display: none;"><img id="uploadedPhoto" style="max-width: 100%; height: auto; border-radius: 10px;"></div>
+                <input type="file" id="photoInput" accept="image/*" style="display: none;">
+            </div>
+            <div class="step-navigation">
+                <button onclick="showStep(1)">Назад</button>
+                <button onclick="showStep(3)" id="step2Next" disabled>Далее</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step3">
+            <h2>Шаг 3: Назначение точек контура</h2>
+            <p>Кликните по углам контура на фотографии, чтобы отметить его. Нужно минимум 3 точки.</p>
+            <div class="points-info">
+                <button class="clear-points-btn" onclick="clearAllPoints()">Очистить точки</button>
+                <span>Точек назначено: <strong id="pointCounter">0</strong></span>
+            </div>
+            <div id="photo-container">
+                <img id="step3-photo" alt="Фото контура">
+                <svg id="lines-svg"></svg>
+            </div>
+            <div class="step-navigation">
+                <button onclick="showStep(2)">Назад</button>
+                <button onclick="showStep(4)" id="step3Next" disabled>Далее</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step4">
+            <h2>Шаг 4: Загрузка изображения для гобо</h2>
+            <p>Загрузите изображение (например, логотип или знак), которое будет проецироваться. Для удобства оно будет показано поверх вашего фото.</p>
+            <input type="file" id="step4-image-input" class="image-upload-input" accept="image/*">
+            <div id="step4-image-preview" style="min-height: 200px; border: 2px dashed #cbd5e0; padding: 20px; text-align: center; background: #f9f9f9; border-radius: 10px; margin: 20px 0;">
+                <p>Выберите файл изображения...</p>
+            </div>
+            <div class="step-navigation">
+                <button onclick="showStep(3)">Назад</button>
+                <button onclick="showStep(5)" id="step4Next" disabled>Далее</button>
+            </div>
+        </div>
+        
+        <div class="step-content" id="step5">
+            <h2>Шаг 5: Позиционирование и деформация</h2>
+            <p>Сначала спозиционируйте изображение с помощью контрольной панели, а затем перетаскивайте красные маркеры для точного совмещения с контуром.</p>
+            <div class="deformation-stage-wrapper">
+                <div class="deformation-stage" id="deformationStage">
+                    <canvas id="deformation-canvas"></canvas>
+                </div>
+            </div>
+            <div class="controls-panel">
+                <div class="control-group">
+                    <label for="opacitySlider">Прозрачность: <span id="opacityValue">100</span>%</label>
+                    <input type="range" id="opacitySlider" min="0" max="100" value="100">
+                </div>
+                <div class="control-group">
+                    <label for="scaleSlider">Масштаб: <span id="scaleValue">100</span>%</label>
+                    <input type="range" id="scaleSlider" min="50" max="150" value="100">
+                </div>
+                <div class="control-group">
+                    <label for="rotationSlider">Вращение: <span id="rotationValue">0</span>°</label>
+                    <input type="range" id="rotationSlider" min="-180" max="180" value="0">
+                </div>
+                <div class="control-group pan-controls">
+                    <label>Перемещение</label>
+                    <div>
+                        <button onclick="panImage(0, -5)">↑</button>
+                        <button onclick="panImage(0, 5)">↓</button>
+                        <button onclick="panImage(-5, 0)">←</button>
+                        <button onclick="panImage(5, 0)">→</button>
+                    </div>
+                </div>
+            </div>
+            <div class="step-navigation">
+                <button onclick="showStep(4)">Назад</button>
+                <button onclick="showStep(6)">Далее</button>
+            </div>
+        </div>
+
+        <div class="step-content" id="step6">
+            <h2>Шаг 6: Предпросмотр и экспорт</h2>
+            <p>Финальный макет гобо-слайда, готовый к печати. Укажите параметры и скачайте файл в формате .TIFF.</p>
+            <div class="form-row" style="margin-bottom: 20px;">
+                <div class="form-group"><label for="printDPI">Разрешение (DPI):</label><input type="number" id="printDPI" value="2700"></div>
+                <div class="form-group"><label for="slideDiameter">Диаметр слайда (мм):</label><input type="number" id="slideDiameter" value="37.5"></div>
+                <div class="form-group"><label for="printDiameter">Диаметр печати (мм):</label><input type="number" id="printDiameter" value="32"></div>
+                <div class="form-group"><label for="alignMark">Метка позиционирования:</label><input type="text" id="alignMark" value="PLT"></div>
+            </div>
+            <div id="finalResult">
+                <canvas id="result-canvas"></canvas>
+            </div>
+            <div class="step-navigation">
+                <button onclick="showStep(5)">Назад</button>
+                <button onclick="exportFinalGobo()">Скачать .TIFF</button>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+// ===================================================================
+// == ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ И ИНИЦИАЛИЗАЦИЯ ==
+// ===================================================================
+let currentStep = 1;
+let assignedPoints = [];      // Массив точек, отмеченных на Шаге 3. Формат: {x, y, element}
+let photoData = null;           // Данные фонового фото в формате Base64
+let userImageElement = null;    // HTML элемент <img> для гобо-изображения
+let controlPointElements = [];  // Массив DOM-элементов для красных маркеров
+
+// Объект состояния для редактора на Шаге 5
+let transformState = {
+    x: 0, y: 0,         // Позиция гобо-изображения
+    scale: 1,           // Масштаб
+    rotation: 0,        // Вращение в градусах
+    opacity: 1,         // Прозрачность
+    initialScale: 1     // Начальный рассчитанный масштаб
+};
+// Массив координат для вершин деформации
+let deformationDestPoints = []; 
+let activeControlPoint = null;
+
+// Запускаем инициализацию после полной загрузки страницы
+document.addEventListener('DOMContentLoaded', initCalculator);
+
+function initCalculator() {
+    setupStep2Listeners();
+    setupStep4Listeners();
+}
+
+
+// ===================================================================
+// == ОСНОВНАЯ НАВИГАЦИЯ МЕЖДУ ШАГАМИ ==
+// ===================================================================
+function showStep(stepNumber) {
+    for (let i = 1; i <= 6; i++) {
+        document.getElementById(`step${i}`).classList.remove('active');
+        const progress = document.getElementById(`progress${i}`);
+        progress.classList.remove('active', 'completed');
+        if (i < stepNumber) {
+            progress.classList.add('completed');
+        }
+    }
+
+    document.getElementById(`step${stepNumber}`).classList.add('active');
+    document.getElementById(`progress${stepNumber}`).classList.add('active');
+    currentStep = stepNumber;
+
+    if (stepNumber === 3) setupStep3();
+    if (stepNumber === 5) initStep5();
+    if (stepNumber === 6) generateFinalResultPreview();
+}
+
+
+// ===================================================================
+// == ЛОГИКА ШАГА 2: ЗАГРУЗКА ФОТО ОБЪЕКТА ==
+// ===================================================================
+function setupStep2Listeners() {
+    const uploadArea = document.getElementById('photoUploadArea');
+    const fileInput = document.getElementById('photoInput');
+    uploadArea.addEventListener('click', () => fileInput.click());
+    ['dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (eventName === 'dragover') uploadArea.classList.add('dragover');
+            if (eventName === 'dragleave' || eventName === 'drop') uploadArea.classList.remove('dragover');
+            if (eventName === 'drop') handlePhotoFile(e.dataTransfer.files[0]);
+        });
+    });
+    fileInput.addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
+}
+
+function handlePhotoFile(file) {
+    if (!file || !file.type.startsWith('image/')) { alert('Пожалуйста, выберите файл изображения'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        photoData = e.target.result;
+        document.getElementById('uploadedPhoto').src = photoData;
+        document.getElementById('uploadPrompt').style.display = 'none';
+        document.getElementById('photoPreview').style.display = 'block';
+        document.getElementById('step2Next').disabled = false;
+    };
+    reader.readAsDataURL(file);
+}
+
+
+// ===================================================================
+// == ЛОГИКА ШАГА 3: НАЗНАЧЕНИЕ ТОЧЕК КОНТУРА ==
+// ===================================================================
+function setupStep3() {
+    if (!photoData) { showStep(2); return; }
+    const step3Photo = document.getElementById('step3-photo');
+    step3Photo.src = photoData;
+    step3Photo.onload = () => {
+        clearAllPoints();
+        step3Photo.removeEventListener('click', handlePhotoClick);
+        step3Photo.addEventListener('click', handlePhotoClick);
+    }
+}
+
+function handlePhotoClick(event) {
+    const photoElement = event.target;
+    const rect = photoElement.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    const pointEl = document.createElement('div');
+    pointEl.className = 'assigned-point';
+    pointEl.textContent = assignedPoints.length + 1;
+    pointEl.style.left = `${x}px`;
+    pointEl.style.top = `${y}px`;
+
+    photoElement.parentElement.appendChild(pointEl);
+    assignedPoints.push({ x, y, element: pointEl });
+    updatePointCounterAndLines();
+}
+
+function clearAllPoints() {
+    assignedPoints.forEach(p => p.element.remove());
+    assignedPoints = [];
+    document.getElementById('lines-svg').innerHTML = '';
+    updatePointCounterAndLines();
+}
+
+function updatePointCounterAndLines() {
+    document.getElementById('pointCounter').textContent = assignedPoints.length;
+    document.getElementById('step3Next').disabled = assignedPoints.length < 3;
+    drawConnectingLines();
+}
+
+function drawConnectingLines() {
+    const svg = document.getElementById('lines-svg');
+    const photo = document.getElementById('step3-photo');
+    svg.innerHTML = '';
+    svg.setAttribute('viewBox', `0 0 ${photo.offsetWidth} ${photo.offsetHeight}`);
+    if (assignedPoints.length < 2) return;
+    const pathData = assignedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    const closingPath = assignedPoints.length > 2 ? ' Z' : '';
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData + closingPath);
+    path.setAttribute('stroke', '#ff69b4');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('fill', 'rgba(255, 105, 180, 0.2)');
+    path.setAttribute('stroke-dasharray', '5,5');
+    svg.appendChild(path);
+}
+
+
+// ===================================================================
+// == ЛОГИКА ШАГА 4: ЗАГРУЗКА ИЗОБРАЖЕНИЯ ГОБО С УЛУЧШЕННЫМ ПРЕДПРОСМОТРОМ ==
+// ===================================================================
+function setupStep4Listeners() {
+    document.getElementById('step4-image-input').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            userImageElement = new Image();
+            userImageElement.src = e.target.result;
+            userImageElement.onload = () => {
+                const previewContainer = document.getElementById('step4-image-preview');
+                previewContainer.innerHTML = ''; // Очищаем
+                
+                const previewCanvas = document.createElement('canvas');
+                const pCtx = previewCanvas.getContext('2d');
+                previewCanvas.style.maxWidth = '100%';
+                previewCanvas.style.height = 'auto';
+                previewContainer.appendChild(previewCanvas);
+                
+                const bgPhotoImg = document.getElementById('step3-photo');
+                previewCanvas.width = bgPhotoImg.naturalWidth;
+                previewCanvas.height = bgPhotoImg.naturalHeight;
+                
+                pCtx.globalAlpha = 0.6;
+                pCtx.drawImage(bgPhotoImg, 0, 0);
+                pCtx.globalAlpha = 1.0;
+                
+                const scale = Math.min(previewCanvas.width / userImageElement.width, previewCanvas.height / userImageElement.height) * 0.5;
+                const w = userImageElement.width * scale;
+                const h = userImageElement.height * scale;
+                pCtx.drawImage(userImageElement, (previewCanvas.width - w) / 2, (previewCanvas.height - h) / 2, w, h);
+
+                document.getElementById('step4Next').disabled = false;
+            };
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+
+// ===================================================================
+// == ЛОГИКА ШАГА 5: ПРОФЕССИОНАЛЬНЫЙ РЕДАКТОР ==
+// ===================================================================
+function initStep5() {
+    if (!userImageElement || !userImageElement.complete || assignedPoints.length < 3) {
+        alert("Пожалуйста, убедитесь, что загружены оба изображения и отмечены минимум 3 точки на контуре.");
+        showStep(4);
+        return;
+    }
+
+    const canvas = document.getElementById('deformation-canvas');
+    const stage = document.getElementById('deformationStage');
+    const bgPhoto = document.getElementById('step3-photo');
+
+    canvas.width = bgPhoto.offsetWidth;
+    canvas.height = bgPhoto.offsetHeight;
+
+    calculateInitialTransform();
+    setupControlPoints(stage);
+    setupStep5Controls();
+    drawTransformedImage();
+}
+
+function calculateInitialTransform() {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    assignedPoints.forEach(p => {
+        minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    });
+    const contourWidth = maxX - minX;
+    const contourHeight = maxY - minY;
+    const contourCenterX = minX + contourWidth / 2;
+    const contourCenterY = minY + contourHeight / 2;
+
+    const targetSize = Math.max(contourWidth, contourHeight) * 1.2;
+    const imgMaxDim = Math.max(userImageElement.naturalWidth, userImageElement.naturalHeight);
+    
+    transformState.initialScale = targetSize / imgMaxDim;
+    transformState.scale = transformState.initialScale;
+    transformState.x = contourCenterX;
+    transformState.y = contourCenterY;
+    transformState.rotation = 0;
+    transformState.opacity = 1;
+}
+    
+function setupControlPoints(stage) {
+    controlPointElements.forEach(p => p.remove());
+    controlPointElements = [];
+    deformationDestPoints = [];
+
+    assignedPoints.forEach((p, i) => {
+        const point = { x: p.x, y: p.y };
+        deformationDestPoints.push(point);
+        const pointElement = document.createElement('div');
+        pointElement.className = 'control-point';
+        pointElement.dataset.index = i;
+        pointElement.style.left = `${point.x}px`;
+        pointElement.style.top = `${point.y}px`;
+        stage.appendChild(pointElement);
+        controlPointElements.push(pointElement);
+        pointElement.addEventListener('mousedown', (e) => { e.preventDefault(); activeControlPoint = { index: i, element: pointElement }; });
+    });
+
+    document.removeEventListener('mousemove', handleDrag);
+    document.removeEventListener('mouseup', stopDrag);
+    document.addEventListener('mousemove', handleDrag);
+    document.addEventListener('mouseup', stopDrag);
+}
+    
+function setupStep5Controls() {
+    const sliders = { opacity: 100, scale: 100, rotation: 0 };
+    for (const type in sliders) {
+        const slider = document.getElementById(`${type}Slider`);
+        const valueEl = document.getElementById(`${type}Value`);
+        if(type === 'scale') slider.value = 100;
+        else if (type === 'rotation') slider.value = 0;
+        else slider.value = 100;
+        valueEl.textContent = slider.value;
+        slider.oninput = () => {
+            valueEl.textContent = slider.value;
+            if (type === 'opacity') transformState.opacity = slider.value / 100;
+            if (type === 'rotation') transformState.rotation = parseInt(slider.value);
+            if (type === 'scale') transformState.scale = transformState.initialScale * (slider.value / 100);
+            drawTransformedImage();
+        };
+    }
+}
+
+window.panImage = (dx, dy) => { transformState.x += dx; transformState.y += dy; drawTransformedImage(); };
+function handleDrag(e) {
+    if (!activeControlPoint) return;
+    const stageRect = document.getElementById('deformationStage').getBoundingClientRect();
+    const x = e.clientX - stageRect.left;
+    const y = e.clientY - stageRect.top;
+    activeControlPoint.element.style.left = `${x}px`;
+    activeControlPoint.element.style.top = `${y}px`;
+    deformationDestPoints[activeControlPoint.index] = { x, y };
+    drawTransformedImage();
+}
+function stopDrag() { activeControlPoint = null; }
+
+function drawTransformedImage() {
+    const canvas = document.getElementById('deformation-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const bgPhotoImg = document.getElementById('step3-photo');
+    ctx.drawImage(bgPhotoImg, 0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.globalAlpha = transformState.opacity;
+    ctx.translate(transformState.x, transformState.y);
+    ctx.rotate(transformState.rotation * Math.PI / 180);
+    ctx.scale(transformState.scale, transformState.scale);
+    const imgW = userImageElement.naturalWidth;
+    const imgH = userImageElement.naturalHeight;
+    ctx.translate(-imgW / 2, -imgH / 2);
+    let sourcePoints = [];
+    const numPoints = deformationDestPoints.length;
+    for(let i=0; i<numPoints; i++) {
+        const angle = (i / numPoints) * 2 * Math.PI - (Math.PI / 2);
+        sourcePoints.push({
+            x: imgW / 2 + (imgW / 2) * Math.cos(angle),
+            y: imgH / 2 + (imgH / 2) * Math.sin(angle)
+        });
+    }
+    let localDestPoints = deformationDestPoints.map(p => {
+        const dx = p.x - transformState.x;
+        const dy = p.y - transformState.y;
+        const angle = -transformState.rotation * Math.PI / 180;
+        const s = transformState.scale;
+        return {
+            x: (dx * Math.cos(angle) - dy * Math.sin(angle)) / s + imgW/2,
+            y: (dx * Math.sin(angle) + dy * Math.cos(angle)) / s + imgH/2,
+        };
+    });
+    const delaunay = Delaunator.from(localDestPoints.map(p => [p.x, p.y]));
+    for (let i = 0; i < delaunay.triangles.length; i += 3) {
+        const t = [delaunay.triangles[i], delaunay.triangles[i+1], delaunay.triangles[i+2]];
+        const src = t.map(p => sourcePoints[p]);
+        const dst = t.map(p => localDestPoints[p]);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(dst[0].x, dst[0].y); ctx.lineTo(dst[1].x, dst[1].y); ctx.lineTo(dst[2].x, dst[2].y);
+        ctx.closePath();
+        ctx.clip();
+        const det = src[0].x * (src[1].y - src[2].y) + src[1].x * (src[2].y - src[0].y) + src[2].x * (src[0].y - src[1].y);
+        if (Math.abs(det) < 1e-9) { ctx.restore(); continue; }
+        const a = (dst[0].x * (src[1].y - src[2].y) + dst[1].x * (src[2].y - src[0].y) + dst[2].x * (src[0].y - src[1].y)) / det;
+        const b = (dst[0].y * (src[1].y - src[2].y) + dst[1].y * (src[2].y - src[0].y) + dst[2].y * (src[0].y - src[1].y)) / det;
+        const c = (dst[0].x * (src[2].x - src[1].x) + dst[1].x * (src[0].x - src[2].x) + dst[2].x * (src[1].x - src[0].x)) / det;
+        const d = (dst[0].y * (src[2].x - src[1].x) + dst[1].y * (src[0].x - src[2].x) + dst[2].y * (src[1].x - src[0].x)) / det;
+        const e = dst[0].x - a * src[0].x - c * src[0].y;
+        const f = dst[0].y - b * src[0].x - d * src[0].y;
+        ctx.transform(a, b, c, d, e, f);
+        ctx.drawImage(userImageElement, 0, 0);
+        ctx.restore();
+    }
+    ctx.restore();
+}
+
+// ===================================================================
+// == ЛОГИКА ШАГА 6: ПРЕДПРОСМОТР И ЭКСПОРТ В TIFF ==
+// ===================================================================
+function generateFinalResultPreview() {
+    const previewCanvas = document.getElementById('result-canvas');
+    const pCtx = previewCanvas.getContext('2d');
+    const previewSize = Math.min(previewCanvas.parentElement.clientWidth, 400);
+    previewCanvas.width = previewSize;
+    previewCanvas.height = previewSize;
+
+    const slideDiameter = parseFloat(document.getElementById('slideDiameter').value) || 37.5;
+    const printDiameter = parseFloat(document.getElementById('printDiameter').value) || 32;
+    const printRadiusRatio = printDiameter / slideDiameter;
+
+    // Рисуем макет слайда
+    pCtx.fillStyle = 'black';
+    pCtx.beginPath();
+    pCtx.arc(previewSize / 2, previewSize / 2, previewSize / 2, 0, 2 * Math.PI);
+    pCtx.fill();
+    pCtx.fillStyle = '#1a1a1a'; // Чуть светлее для видимости печатной области
+    pCtx.beginPath();
+    pCtx.arc(previewSize / 2, previewSize / 2, (previewSize / 2) * printRadiusRatio, 0, 2 * Math.PI);
+    pCtx.fill();
+
+    const cleanImage = getCleanDistortedImage();
+    if (!cleanImage) return;
+
+    // Вписываем искаженное изображение в печатную область
+    const fitSize = previewSize * printRadiusRatio;
+    const scale = fitSize / Math.max(cleanImage.width, cleanImage.height);
+    const w = cleanImage.width * scale;
+    const h = cleanImage.height * scale;
+    pCtx.drawImage(cleanImage, (previewSize - w) / 2, (previewSize - h) / 2, w, h);
+}
+
+function exportFinalGobo() {
+    const DPI = parseInt(document.getElementById('printDPI').value);
+    const slideMM = parseFloat(document.getElementById('slideDiameter').value);
+    const printMM = parseFloat(document.getElementById('printDiameter').value);
+    const markText = document.getElementById('alignMark').value;
+
+    if (!DPI || !slideMM || !printMM) { alert("Введите корректные параметры печати."); return; }
+
+    const slidePX = (slideMM / 25.4) * DPI;
+    const printPX = (printMM / 25.4) * DPI;
+
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = Math.round(slidePX);
+    finalCanvas.height = Math.round(slidePX);
+    const ctx = finalCanvas.getContext('2d');
+    const centerX = finalCanvas.width / 2;
+    const centerY = finalCanvas.height / 2;
+    
+    // Рисуем черную маску
+    ctx.fillStyle = 'black';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, printPX / 2, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Получаем "чистое" искаженное изображение
+    const cleanDistortedImage = getCleanDistortedImage();
+    if (!cleanDistortedImage) { alert("Не удалось создать изображение для экспорта."); return; }
+    
+    // Вписываем его в печатную область
+    const scaleToFit = printPX / Math.max(cleanDistortedImage.width, cleanDistortedImage.height);
+    const w = cleanDistortedImage.width * scaleToFit;
+    const h = cleanDistortedImage.height * scaleToFit;
+    ctx.drawImage(cleanDistortedImage, centerX - w / 2, centerY - h / 2, w, h);
+
+    // Рисуем метку позиционирования
+    if (markText) {
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${Math.round(printPX * 0.04)}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const markRadius = (printPX / 2) + ((slidePX - printPX) / 4);
+        ctx.fillText(markText, centerX, centerY + markRadius);
+    }
+
+    // Экспортируем в TIFF с помощью библиотеки
+    CanvasToTIFF.toTiff(finalCanvas, { dpi: DPI, compression: 'lzw' });
+}
+
+// Финальная, полностью рабочая функция для получения чистого искаженного изображения
+function getCleanDistortedImage() {
+    if (!userImageElement || !userImageElement.complete) return null;
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const deformationCanvas = document.getElementById('deformation-canvas');
+    canvas.width = deformationCanvas.width;
+    canvas.height = deformationCanvas.height;
+
+    ctx.save();
+    ctx.translate(transformState.x, transformState.y);
+    ctx.rotate(transformState.rotation * Math.PI / 180);
+    ctx.scale(transformState.scale, transformState.scale);
+    
+    const imgW = userImageElement.naturalWidth;
+    const imgH = userImageElement.naturalHeight;
+    ctx.translate(-imgW / 2, -imgH / 2);
+    
+    let sourcePoints = [];
+    const numPoints = deformationDestPoints.length;
+    for(let i=0; i<numPoints; i++) {
+        const angle = (i / numPoints) * 2 * Math.PI - (Math.PI / 2);
+        sourcePoints.push({ x: imgW / 2 + (imgW / 2) * Math.cos(angle), y: imgH / 2 + (imgH / 2) * Math.sin(angle) });
+    }
+    
+    let localDestPoints = deformationDestPoints.map(p => {
+        const dx = p.x - transformState.x;
+        const dy = p.y - transformState.y;
+        const angle = -transformState.rotation * Math.PI / 180;
+        const s = transformState.scale;
+        return { x: (dx * Math.cos(angle) - dy * Math.sin(angle)) / s + imgW/2, y: (dx * Math.sin(angle) + dy * Math.cos(angle)) / s + imgH/2 };
+    });
+
+    const delaunay = Delaunator.from(localDestPoints.map(p => [p.x, p.y]));
+    
+    for (let i = 0; i < delaunay.triangles.length; i += 3) {
+        const t = [delaunay.triangles[i], delaunay.triangles[i+1], delaunay.triangles[i+2]];
+        const src = t.map(p => sourcePoints[p]);
+        const dst = t.map(p => localDestPoints[p]);
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(dst[0].x, dst[0].y); ctx.lineTo(dst[1].x, dst[1].y); ctx.lineTo(dst[2].x, dst[2].y);
+        ctx.closePath();
+        ctx.clip();
+        const det = src[0].x * (src[1].y - src[2].y) + src[1].x * (src[2].y - src[0].y) + src[2].x * (src[0].y - src[1].y);
+        if (Math.abs(det) < 1e-9) { ctx.restore(); continue; }
+        const a = (dst[0].x * (src[1].y - src[2].y) + dst[1].x * (src[2].y - src[0].y) + dst[2].x * (src[0].y - src[1].y)) / det;
+        const b = (dst[0].y * (src[1].y - src[2].y) + dst[1].y * (src[2].y - src[0].y) + dst[2].y * (src[0].y - src[1].y)) / det;
+        const c = (dst[0].x * (src[2].x - src[1].x) + dst[1].x * (src[0].x - src[2].x) + dst[2].x * (src[1].x - src[0].x)) / det;
+        const d = (dst[0].y * (src[2].x - src[1].x) + dst[1].y * (src[0].x - src[2].x) + dst[2].y * (src[1].x - src[0].x)) / det;
+        const e = dst[0].x - a * src[0].x - c * src[0].y;
+        const f = dst[0].y - b * src[0].x - d * src[0].y;
+        ctx.transform(a, b, c, d, e, f);
+        ctx.drawImage(userImageElement, 0, 0);
+        ctx.restore();
+    }
+    ctx.restore();
+    return canvas;
+}
+
+</script>
+</body>
+</html>
