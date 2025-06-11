@@ -1,378 +1,375 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <title>GOBO Калькулятор (Финальная рабочая версия)</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; color: #1a202c; line-height: 1.5; }
-        #app { max-width: 960px; margin: 20px auto; padding: 16px; }
-        h1 { text-align: center; margin: 10px 0 20px; color: #2d3748; }
-        h2 { margin-top: 0; }
-        .step { display: none; background: #fff; padding: 24px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.08); margin-top: 20px; }
-        .step.active { display: block; }
-        .progress { display: flex; justify-content: space-between; margin-bottom: 24px; padding: 0; }
-        .progress div { flex: 1; text-align: center; font-weight: 600; color: #a0aec0; position: relative; padding-top: 40px; }
-        .progress div::before { content: attr(data-n); position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 32px; height: 32px; margin: 0 auto 8px; border-radius: 50%; line-height: 32px; border: 2px solid #cbd5e0; background: #fff; color: #cbd5e0; font-weight: 700; transition: all 0.3s ease; }
-        .progress .active { color: #4a5568; }
-        .progress .active::before { border-color: #5a67d8; color: #5a67d8; }
-        .progress .done::before { background: #5a67d8; color: #fff; border-color: #5a67d8; }
-        #photoZone { border: 3px dashed #cbd5e0; padding: 50px; text-align: center; border-radius: 10px; cursor: pointer; transition: all 0.2s ease; background-color: #f7fafc; }
-        #photoZone.dragover { background: #e2e8f0; border-color: #5a67d8; }
-        .point { position: absolute; width: 14px; height: 14px; background: #e53e3e; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); font-size: 9px; line-height: 10px; text-align: center; color: #fff; font-weight: 700; user-select: none; cursor: grab; box-shadow: 0 0 5px rgba(0,0,0,0.5); z-index: 10;}
-        .point:active { cursor: grabbing; }
-        .layer-container { position: relative; display: inline-block; border: 1px solid #e2e8f0; border-radius: 10px; line-height: 0; overflow: hidden; background: #eee; }
-        #bgImg, #bgImg2 { max-width: 100%; display: block; border-radius: 10px; }
-        #deformation-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #points-svg { position: absolute; inset: 0; pointer-events: none; }
-        .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; align-items: center; }
-        .controls label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
-        button, input[type="file"], select { padding: 8px 14px; font-size: 14px; border-radius: 6px; border: 1px solid #cbd5e0; background-color: #fff; cursor: pointer; transition: all 0.2s; }
-        button:hover, select:hover { border-color: #a0aec0; background-color: #f7fafc; }
-        button:disabled { cursor: not-allowed; opacity: 0.6; }
-        .hidden { display: none; }
-        #goboPreview { height: 200px; border: 2px dashed #cbd5e0; margin: 12px 0; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
-    </style>
+<meta charset="UTF-8">
+<title>GOBO Calculator‑Pro (v0.9)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<style>
+/* минимальный CSS — только нужное */
+body{margin:0;font:15px/1.4 system-ui;background:#f6f7fa;color:#2d3748}
+h1{text-align:center;margin:0;padding:12px 0;background:#4c51bf;color:#fff;font-size:20px}
+#app{max-width:1024px;margin:0 auto;padding:16px}
+.step{display:none}
+.step.active{display:block}
+#photoZone{border:3px dashed #a0aec0;padding:48px;text-align:center;border-radius:12px;cursor:pointer;transition:.2s}
+#photoZone.drag{background:#edf2f7;border-color:#4c51bf}
+.layer{position:relative;border:1px solid #e2e8f0;border-radius:8px;display:inline-block}
+.point{position:absolute;width:14px;height:14px;transform:translate(-50%,-50%);background:#e53e3e;border:2px solid #fff;border-radius:50%;font:9px/12px monospace;color:#fff;text-align:center;cursor:grab;user-select:none}
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+button,input[type=range],select{padding:6px 10px;font:inherit;border-radius:6px;border:1px solid #cbd5e0;background:#fff;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+canvas{max-width:100%}
+#cv{position:absolute;left:0;top:0}
+</style>
 </head>
 <body>
+<h1>GOBO Calculator‑Pro</h1>
 <div id="app">
-    <h1>GOBO Калькулятор</h1>
-    <div class="progress">
-        <div id="p1" data-n="1" class="active">Фото</div>
-        <div id="p2" data-n="2">Контур</div>
-        <div id="p3" data-n="3">Проекция</div>
-        <div id="p4" data-n="4">Деформация</div>
-        <div id="p5" data-n="5">Экспорт</div>
-    </div>
 
-    <section id="s1" class="step active">
-        <h2>Шаг 1: Загрузка эталонного фото</h2>
-        <p>Перетащите фотографию объекта, на котором размечен контур.</p>
-        <div id="photoZone">📷 Перетащите фото или кликните для выбора</div>
-        <input id="photoInput" type="file" accept="image/*" class="hidden">
-    </section>
+<!-- ── ШАГ 1 ── -->
+<section id="s1" class="step active">
+ <p>1. Перетащи <strong>эталонное фото</strong> или кликни внутри зоны:</p>
+ <div id="photoZone">📷 Drop / Click</div>
+ <input id="photoInput" type="file" accept="image/*" hidden>
+</section>
 
-    <section id="s2" class="step">
-        <h2>Шаг 2: Назначение точек контура</h2>
-        <p>Кликните по углам размеченного контура (минимум 3, максимум 12 точек).</p>
-        <div id="contour-layer" class="layer-container">
-            <img id="bgImg">
-            <svg id="points-svg"></svg>
-        </div>
-        <div class="controls">
-            <span>Точек: <b id="ptCount">0</b>/12</span>
-            <button id="undoBtn">⟲ Отменить точку</button>
-            <button id="clearBtn">Очистить всё</button>
-            <button id="toStep3" disabled>Далее →</button>
-        </div>
-    </section>
+<!-- ── ШАГ 2 ── -->
+<section id="s2" class="step">
+ <p>2. Кликни по углам контура (до 12 точек).</p>
+ <div id="layer" class="layer">
+   <img id="bgImg" alt="">
+   <canvas id="cv"></canvas>
+   <svg id="poly" style="position:absolute;inset:0"></svg>
+ </div>
+ <div class="controls">
+   <span>Точек: <b id="pCount">0</b>/12</span>
+   <button id="undoBtn" disabled>⟲ Undo</button>
+   <button id="next2" disabled>Далее →</button>
+ </div>
+</section>
 
-    <section id="s3" class="step">
-        <h2>Шаг 3: Загрузка изображения проекции</h2>
-        <p>Загрузите логотип или рисунок для проекции (рекомендуется PNG с прозрачным фоном).</p>
-        <input id="goboInput" type="file" accept="image/png, image/jpeg">
-        <div id="goboPreview"><span>Предпросмотр...</span></div>
-        <button id="toStep4" disabled>Далее →</button>
-    </section>
+<!-- ── ШАГ 3 ── -->
+<section id="s3" class="step">
+ <p>3. Загрузи <strong>картинку гобо</strong> (PNG с альфой лучше).</p>
+ <input id="goboInput" type="file" accept="image/*">
+ <div id="gPrev" style="height:200px;border:2px dashed #cbd5e0;border-radius:8px;display:flex;align-items:center;justify-content:center;margin:12px 0">—</div>
+ <button id="next3" disabled>Далее →</button>
+</section>
 
-    <section id="s4" class="step">
-        <h2>Шаг 4: Позиционирование и деформация</h2>
-        <p>Перетаскивайте красные маркеры, чтобы точно подогнать изображение по контуру.</p>
-        <div id="edit-layer" class="layer-container">
-            <img id="bgImg2">
-            <canvas id="deformation-canvas"></canvas>
-        </div>
-        <div class="controls">
-            <label>Прозрачность <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.7"></label>
-            <button id="toggleVis">👁 Скрыть</button>
-            <button id="saveBtn">💾 Сохранить</button>
-            <button id="loadBtn">📂 Открыть</button>
-            <button id="toStep5">Далее →</button>
-        </div>
-    </section>
+<!-- ── ШАГ 4 ── -->
+<section id="s4" class="step">
+ <p>4. Подгони, при необходимости подвигай точки.</p>
+ <div class="controls">
+  <label>Прозрачн.
+   <input type="range" id="opa" min="0" max="100" value="100">
+  </label>
+  <label>Масштаб
+   <input type="range" id="scl" min="50" max="150" value="100">
+  </label>
+  <label>Поворот
+   <input type="range" id="rot" min="-180" max="180" value="0">
+  </label>
+  <button id="eyeBtn">👁 Скрыть</button>
+  <button id="help">❔ Помощь</button>
+  <button id="next4">Экспорт →</button>
+ </div>
+</section>
 
-    <section id="s5" class="step">
-        <h2>Шаг 5: Предпросмотр и экспорт</h2>
-        <label>Пресет для печати:
-            <select id="preset">
-                <option value="32,2700,3401">Стекло 32 мм / 2700 DPI</option>
-                <option value="42,1500,2480">Слайд 42 мм / 1500 DPI</option>
-                <option value="50,600,1181">Слайд 50 мм / 600 DPI</option>
-            </select>
-        </label>
-        <p>Итоговый размер: <b id="export-size">3401 x 3401 px</b></p>
-        <div class="controls">
-            <button id="exportPng">📤 Экспорт в PNG</button>
-            <button id="exportTif">📤 Экспорт в TIFF (для типографий)</button>
-        </div>
-        <canvas id="preview-canvas" style="margin-top:12px; border:1px solid #e2e8f0; max-width: 300px;"></canvas>
-    </section>
+<!-- ── ШАГ 5 ── -->
+<section id="s5" class="step">
+ <p>5. Экспорт (по умолчанию 32 мм @2700 DPI → 3401 px).</p>
+ <div class="controls">
+  <button id="savePNG">📤 PNG</button>
+  <button id="saveTIF">📤 TIFF RGBA</button>
+  <button id="saveJSON">💾 Сохранить проект</button>
+  <button id="loadJSON">📂 Открыть проект</button>
+ </div>
+ <canvas id="prev" style="border:1px solid #cbd5e0;margin-top:12px"></canvas>
+</section>
+
 </div>
 
+<!-- ── библиотеки ── -->
+<script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.0.0/UTIF.min.js"></script> <!-- для TIFF RGBA -->
+<!-- мини‑скрипт интро (3 кБ) -->
 <script>
-// --- Delaunator.js ---
-!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):t.Delaunator=e()}(this,function(){"use strict";const t=Math.pow(2,-52),e=new Uint8Array(256);for(let t=0;t<256;t++)e[t]=(1 & t?1:0)+(2 & t?2:0)+(4 & t?4:0)+(8 & t?8:0)+(16 & t?16:0)+(32 & t?32:0)+(64 & t?64:0)+(128 & t?128:0);const r=new Int32Array(256);for(let t=0;t<256;t++)r[t]=(1 & t) + (2 & t) + (4 & t) + (8 & t) + (16 & t) + (32 & t) + (64 & t) + (128 & t);class n{static from(t,e=t=>t[0],r=t=>t[1]){const i=t.length,s=new Float64Array(2*i);for(let n=0;n<i;n++){const i=t[n];s[2*n]=e(i),s[2*n+1]=r(i)}return new n(s)}constructor(e){const r=e.length/2;if(r>0&&"number"!=typeof e[0])throw new Error("Expected coords to contain numbers.");this.coords=e;const n=Math.max(2*r-5,0);this.triangles=new Uint32Array(3*n),this.halfedges=new Int32Array(3*n),this._hashSize=Math.ceil(Math.sqrt(r)),this._hullPrev=new Uint32Array(r),this._hullNext=new Uint32Array(r),this._hash=new Int32Array(this._hashSize).fill(-1),this._hullTri=new Uint32Array(r),this.hull=new Uint32Array(r);let o,i,s,a=1/0,h=1/0,u=-1/0,c=-1/0;const l=new Uint32Array(r);for(let t=0;t<r;t++){const r=e[2*t],n=e[2*t+1];r<a&&(a=r,o=t),r>u&&(u=r),n<h&&(h=n,i=t),n>c&&(c=n),l[t]=t}const f=e[2*o],p=e[2*o+1],d=e[2*i],x=e[2*i+1];l.sort((t,r)=>{const n=e[2*t]-f,o=e[2*t+1]-p,i=e[2*r]-f,s=e[2*r+1];return n*n+o*o-(i*i+s*s)});const g=l[0];let v=o,m=v===g?i:g,y=e[2*v],A=e[2*v+1],b=e[2*m],D=e[2*m+1],E=(y+b)/2, _=(A+D)/2,w=1/0;for(let t=0;t<r;t++){if(t===v||t===m)continue;const r=(s=Math.pow(e[2*t]-E,2)+Math.pow(e[2*t+1]-_,2))<w&&(w=s,s>0)&&(w=s,s>0,s=Math.pow(e[2*t]-E,2)+Math.pow(e[2*t+1]-_,2))<w&&(w=s,s>0)&&(w=s,s>0,w=s,s>0)&&(w=s,s>0)&&(w=s,s>0)};let M=e[2*s],S=e[2*s+1];const T=function(t,e,r,n,o,i){const s=e-t,a=n-r;return(o-t)*a-(i-r)*s}((y-M)*(b-M)-(A-S)*(y-M),A,b,D,M,S)<0;T||(s=m,m=v,v=s);let N=this._addTriangle(v,m,s, -1, -1, -1);for(let o=0;o<l.length;o++){const i=l[o];if(i===v||i===m||i===s)continue;let a,h=0;for(let t=0,r=function(t,e,r,n,o,i){const s=r-t,a=n-e;return(o-t)*a-(i-e)*s}(e[2*i],e[2*i+1],e[2*N],e[2*N+1],e[2*T],e[2*T+1])>0;r;){if(a=this.halfedges[h],-1===a){a=this.hull[this._hullFind(i,h)];break}const n=this.triangles[h];if((r=function(t,e,r,n,o,i){const s=r-t,a=n-e;return(o-t)*a-(i-e)*s}(e[2*i],e[2*i+1],e[2*n],e[2*n+1],e[2*i],e[2*i+1]))>0)h=this._nextHalfedge(h);else{const t=this.halfedges[this._nextHalfedge(h)];if(-1!==t&&function(t,e,r,n,o,i){const s=r-t,a=n-e;return(o-t)*a-(i-e)*s}(e[2*i],e[2*i+1],e[2*n],e[2*n+1],e[2*T],e[2*T+1])>0){h=t;continue}break}if(h===t)break}this._legalize(this._addTriangle(i,this.triangles[h],this.triangles[a],h,a,-1))}this.hull=this.hull.subarray(0,this.hull.length-1)}add(t){const e=this.triangles.length,r=this.halfedges.length;return this.triangles.push(t),this.halfedges.push(-1),this.halfedges[r]=-1,e}}_legalize(e){const r=this.halfedges;let n,o=0;for(;;){const i=r[e];if(-1===(n=r[this._nextHalfedge(e)]))break;const s=this.triangles[i],a=this.triangles[e],h=this.triangles[this._nextHalfedge(e)],u=this.triangles[this._nextHalfedge(i)];if(function(e,r,n,i,s,a,h,u){const c=s-e,l=a-r,f=h-e,p=u-r,d=c*c+l*l,x=f*f+p*p,g=i-n;return(c*p-l*f)*(d*(n-h)+x*(g-c))}(this.coords[2*a],this.coords[2*a+1],this.coords[2*h],this.coords[2*h+1],this.coords[2*s],this.coords[2*s+1],this.coords[2*u],this.coords[2*u+1])>0)break;const c=this._addTriangle(a,s,h,i,n,e);this._link(c,e),this._link(this._nextHalfedge(e),this._nextHalfedge(c)),this._link(e,this._nextHalfedge(c)),this._link(this._nextHalfedge(c),this._nextHalfedge(e)),this.triangles[this._nextHalfedge(e)]=s,this.triangles[this._nextHalfedge(i)]=u,this.triangles[this._nextHalfedge(c)]=h,this._link(this._nextHalfedge(h),this._nextHalfedge(c)),this._link(this._nextHalfedge(s),this._nextHalfedge(c)),this._link(c,this._nextHalfedge(s));const l=o%2;e=c,o++}return e}_link(t,e){this.halfedges[t]=e,e>-1&&(this.halfedges[e]=t)}_addTriangle(t,e,r,n,o,i){const s=this.triangles.length;return this.triangles.push(t),this.triangles.push(e),this.triangles.push(r),this._link(s,n),this._link(s+1,o),this._link(s+2,i),s}_nextHalfedge(t){return t%3==2?t-2:t+1}}return n});
-
-// --- CanvasToTIFF.js (ИСПРАВЛЕНО: добавлена точка с запятой) ---
-;(function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):e.CanvasToTIFF=t()})(this,function(){"use strict";function e(e,t,n,o){for(var i=n;i<n+o;i+=4)e.setUint8(i,t[i-n]),e.setUint8(i+1,t[i-n+1]),e.setUint8(i+2,t[i-n+2]),e.setUint8(i+3,t[i-n+3])}function t(t,n,o){for(var i=0;i<o.length;i++)t.setUint8(n+i,o[i])}function n(e,t){var n=t.getContext("2d").getImageData(0,0,t.width,t.height).data,o=new ArrayBuffer(12+4*n.length),i=new DataView(o);return i.setUint16(0,18761,!0),i.setUint16(2,42,!0),i.setUint16(4,8,!0),i.setUint32(8,o.byteLength-8,!0),e(n,i,12),i}var o={fromCanvas:function(e,o){return new Blob([n(e,e)],{type:"image/tiff"})},toTIFF:function(e,t){var o=n(e,t.canvas);return t.callback&&t.callback(o),o}};return o});
+function intro(){
+ const steps=[
+  ['#photoZone','Загрузите фото объекта'],
+  ['#layer','Кликайте, чтобы расставить 3‑12 точек'],
+  ['#goboInput','Добавьте логотип / гобо‑изображение'],
+  ['#opa','Ползунки: прозрачность / масштаб / поворот'],
+  ['#eyeBtn','👁 скройте/покажите наложение'],
+  ['#savePNG','Экспортируйте PNG или TIFF']
+ ];
+ let i=0,ov=document.createElement('div');ov.style='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6)';
+ function show(){
+  if(i===steps.length){ov.remove();return}
+  const [sel,msg]=steps[i],r=document.querySelector(sel).getBoundingClientRect();
+  ov.innerHTML=`<div style="position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border:2px solid #fff;border-radius:6px"></div>
+  <div style="position:absolute;left:${r.left}px;top:${r.bottom+8}px;background:#fff;color:#2d3748;padding:8px 12px;border-radius:6px;max-width:240px">
+   ${msg}<br><button style="margin-top:6px">Дальше</button>
+  </div>`;
+  ov.querySelector('button').onclick=()=>{i++;show()}
+ }
+ document.body.append(ov);show()
+}
 </script>
 
-
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const $ = q => document.querySelector(q);
+/* ──────────────────── Глобальные переменные ──────────────────── */
+const $=s=>document.querySelector(s);
+let step=1;
+let bgData='',bgImg=$('#bgImg');
+let gobo=null;              /* Image() объекта гобо */
+let points=[];              /* {x,y,elm} */
+let lastState=null;
+let cv=$('#cv'),ctx=cv.getContext('2d');
+let tf={x:0,y:0,s:1,r:0,o:1,base:1}; /* transform state */
+let mesh=[];                /* массив треугольников после Delaunator */
+let showOverlay=true;
 
-    let currentStep = 1;
-    let bgPhotoData = null;
-    let projectionImage = new Image();
-    let contourPoints = [];
-    let controlPoints = [];
-    let opacity = 0.7;
-    let historyStack = [];
-    const MAX_POINTS = 12;
-    const canvas = $('#deformation-canvas');
-    const ctx = canvas.getContext('2d');
-
-    function goToStep(n) {
-        $(`#s${currentStep}`).classList.remove('active');
-        $(`#p${currentStep}`).classList.remove('active');
-        if (n > currentStep) $(`#p${currentStep}`).classList.add('done');
-        currentStep = n;
-        $(`#s${currentStep}`).classList.add('active');
-        $(`#p${currentStep}`).classList.add('active');
-    }
-
-    const photoZone = $('#photoZone');
-    const photoInput = $('#photoInput');
-    photoZone.onclick = () => photoInput.click();
-    ['dragover', 'dragleave', 'drop'].forEach(eventName => {
-        photoZone.addEventListener(eventName, e => {
-            e.preventDefault(); e.stopPropagation();
-            if (eventName === 'dragover') photoZone.classList.add('dragover');
-            if (eventName === 'dragleave' || eventName === 'drop') photoZone.classList.remove('dragover');
-            if (eventName === 'drop') loadPhoto(e.dataTransfer.files[0]);
-        });
-    });
-    photoInput.onchange = e => loadPhoto(e.target.files[0]);
-
-    function loadPhoto(file) {
-        if (!file || !file.type.startsWith('image/')) { alert('Пожалуйста, выберите файл изображения.'); return; }
-        const reader = new FileReader();
-        reader.onload = e => {
-            const img = new Image();
-            img.onload = () => {
-                const MAX_DIM = 2000;
-                if (img.width > MAX_DIM || img.height > MAX_DIM) {
-                    const tempCanvas = document.createElement('canvas');
-                    const ratio = Math.max(img.width, img.height) / MAX_DIM;
-                    tempCanvas.width = img.width / ratio;
-                    tempCanvas.height = img.height / ratio;
-                    tempCanvas.getContext('2d').drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                    bgPhotoData = tempCanvas.toDataURL('image/jpeg', 0.9);
-                    alert(`Изображение было уменьшено до ${tempCanvas.width}x${tempCanvas.height}px для ускорения работы.`);
-                } else {
-                    bgPhotoData = e.target.result;
-                }
-                $('#bgImg').src = bgPhotoData;
-                $('#bgImg2').src = bgPhotoData;
-                goToStep(2);
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-
-    const contourLayer = $('#contour-layer');
-    const pointsSvg = $('#points-svg');
-    contourLayer.addEventListener('click', e => {
-        if (contourPoints.length >= MAX_POINTS) { alert(`Достигнут лимит в ${MAX_POINTS} точек.`); return; }
-        saveToHistory();
-        const rect = contourLayer.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const pointEl = document.createElement('div');
-        pointEl.className = 'point';
-        pointEl.textContent = contourPoints.length + 1;
-        pointEl.style.left = `${x}px`;
-        pointEl.style.top = `${y}px`;
-        contourLayer.appendChild(pointEl);
-        contourPoints.push({ x, y, element: pointEl });
-        updateContourUI();
-    });
-
-    function updateContourUI() {
-        $('#ptCount').textContent = contourPoints.length;
-        $('#toStep3').disabled = contourPoints.length < 3;
-        contourLayer.classList.toggle('points-limit-reached', contourPoints.length >= MAX_POINTS);
-        drawPolyline();
-    }
-    
-    function drawPolyline() {
-        pointsSvg.innerHTML = '';
-        if (contourPoints.length < 2) return;
-        const d = contourPoints.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ') + (contourPoints.length > 2 ? ' Z' : '');
-        pointsSvg.innerHTML = `<path d="${d}" stroke="#e53e3e" stroke-width="2" fill="rgba(229, 62, 62, 0.2)" />`;
-    }
-
-    $('#clearBtn').onclick = () => {
-        saveToHistory();
-        contourPoints.forEach(p => p.element.remove());
-        contourPoints = [];
-        updateContourUI();
-    };
-    $('#undoBtn').onclick = restoreFromHistory;
-    $('#toStep3').onclick = () => goToStep(3);
-
-    $('#goboInput').onchange = e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-            projectionImage = new Image();
-            projectionImage.onload = () => {
-                $('#goboPreview').innerHTML = `<img src="${ev.target.result}" style="max-height:180px; max-width:100%;">`;
-                $('#toStep4').disabled = false;
-            };
-            projectionImage.src = ev.target.result;
-        };
-        reader.readAsDataURL(file);
-    };
-    $('#toStep4').onclick = () => {
-        goToStep(4);
-        setupDeformationStep();
-    };
-
-    function setupDeformationStep() {
-        const bgImg = $('#bgImg2');
-        canvas.width = bgImg.naturalWidth;
-        canvas.height = bgImg.naturalHeight;
-
-        document.querySelectorAll('#edit-layer .point').forEach(p => p.remove());
-        controlPoints = [];
-
-        contourPoints.forEach((p, i) => {
-            const controlPointEl = document.createElement('div');
-            controlPointEl.className = 'point';
-            controlPointEl.textContent = i + 1;
-            controlPointEl.style.left = `${p.x}px`;
-            controlPointEl.style.top = `${p.y}px`;
-            $('#edit-layer').appendChild(controlPointEl);
-            const cp = { x: p.x, y: p.y, element: controlPointEl };
-            controlPoints.push(cp);
-
-            let isDragging = false;
-            controlPointEl.addEventListener('pointerdown', e => {
-                isDragging = true;
-                e.target.setPointerCapture(e.pointerId);
-            });
-            controlPointEl.addEventListener('pointermove', e => {
-                if (!isDragging) return;
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width;
-                const scaleY = canvas.height / rect.height;
-                const newX = (e.clientX - rect.left) * scaleX;
-                const newY = (e.clientY - rect.top) * scaleY;
-                cp.x = newX; cp.y = newY;
-                controlPointEl.style.left = `${newX / scaleX}px`;
-                controlPointEl.style.top = `${newY / scaleY}px`;
-                drawDeformedImage(canvas, ctx, projectionImage, controlPoints);
-            });
-            controlPointEl.addEventListener('pointerup', e => {
-                isDragging = false;
-                e.target.releasePointerCapture(e.pointerId);
-            });
-        });
-        
-        $('#opacity').value = opacity;
-        drawDeformedImage(canvas, ctx, projectionImage, controlPoints);
-    }
-    
-    function drawDeformedImage(targetCanvas, targetCtx, img, destPoints, highQuality = false) {
-        targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-        if (destPoints.length < 3 || !img.width) return;
-
-        const srcPoints = [ { x: 0, y: 0 }, { x: img.width, y: 0 }, { x: img.width, y: img.height }, { x: 0, y: img.height } ];
-        
-        const tempDestPoints = destPoints.map(p => ({x: p.x, y: p.y}));
-        if (tempDestPoints.length === 4) {
-             srcPoints.push({ x: img.width / 2, y: img.height / 2 });
-             const destBbox = getBoundingBox(tempDestPoints);
-             tempDestPoints.push({x: destBbox.cx, y: destBbox.cy });
-        }
-
-        try {
-            const delaunay = Delaunator.from(tempDestPoints.map(p => [p.x, p.y]));
-            const triangles = delaunay.triangles;
-            targetCtx.save();
-            targetCtx.globalAlpha = highQuality ? 1.0 : opacity;
-            for (let i = 0; i < triangles.length; i += 3) {
-                const p0_idx=triangles[i], p1_idx=triangles[i+1], p2_idx=triangles[i+2];
-                const p0=tempDestPoints[p0_idx], p1=tempDestPoints[p1_idx], p2=tempDestPoints[p2_idx];
-                const s0=srcPoints[p0_idx], s1=srcPoints[p1_idx], s2=srcPoints[p2_idx];
-                if (!p0 || !p1 || !p2 || !s0 || !s1 || !s2) continue;
-                targetCtx.save();
-                targetCtx.beginPath();
-                targetCtx.moveTo(p0.x,p0.y); targetCtx.lineTo(p1.x,p1.y); targetCtx.lineTo(p2.x,p2.y);
-                targetCtx.closePath();
-                targetCtx.clip();
-                const d=s1.x*s2.y+s0.x*s1.y+s2.x*s0.y-s1.x*s0.y-s2.x*s1.y-s0.x*s2.y;
-                if(Math.abs(d)<1e-9){targetCtx.restore();continue}
-                const A=(p1.x*s2.y+p0.x*s1.y+p2.x*s0.y-p1.x*s0.y-p2.x*s1.y-p0.x*s2.y)/d,B=(p1.y*s2.y+p0.y*s1.y+p2.y*s0.y-p1.y*s0.y-p2.y*s1.y-p0.y*s2.y)/d,C=(p1.x*s0.x+p0.x*s2.x+p2.x*s1.x-p1.x*s2.x-p2.x*s0.x-p0.x*s1.x)/d,D=(p1.y*s0.x+p0.y*s2.x+p2.y*s1.x-p1.y*s2.x-p2.y*s0.x-p0.y*s1.x)/d,E=(p1.x*(s2.x*s0.y-s0.x*s2.y)+p0.x*(s1.x*s2.y-s2.x*s1.y)+p2.x*(s0.x*s1.y-s1.x*s0.y))/d,F=(p1.y*(s2.x*s0.y-s0.x*s2.y)+p0.y*(s1.x*s2.y-s2.x*s1.y)+p2.y*(s0.x*s1.y-s1.x*s0.y))/d;
-                targetCtx.transform(A,B,C,D,E,F);
-                targetCtx.drawImage(img,0,0);
-                targetCtx.restore();
-            }
-            targetCtx.restore();
-        } catch(e) {
-            console.error("Критическая ошибка при деформации:", e);
-            alert("Произошла ошибка при попытке деформировать изображение. Информация выведена в консоль разработчика (F12).");
-        }
-    }
-
-    function getBoundingBox(points) {
-        let minX=1/0,minY=1/0,maxX=-1/0,maxY=-1/0;
-        points.forEach(p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y)});
-        return{cx:minX+(maxX-minX)/2,cy:minY+(maxY-minY)/2}
-    }
-
-    $('#opacity').oninput = e => { opacity = +e.target.value; drawDeformedImage(canvas, ctx, projectionImage, controlPoints); };
-    $('#toggleVis').onclick = () => {
-        const isVisible = canvas.style.visibility !== 'hidden';
-        canvas.style.visibility = isVisible ? 'hidden' : 'visible';
-        $('#toggleVis').textContent = isVisible ? '👁 Показать' : '👁 Скрыть';
-    };
-    $('#toStep5').onclick = () => { generatePreview(); goToStep(5); };
-    $('#saveBtn').onclick = saveProject;
-    $('#loadBtn').onclick = loadProject;
-
-    function saveToHistory() { historyStack.push(JSON.stringify(contourPoints.map(p => ({ x: p.x, y: p.y })))); }
-    function restoreFromHistory() {
-        if(historyStack.length===0)return;
-        const lastState = JSON.parse(historyStack.pop());
-        contourPoints.forEach(p=>p.element.remove());
-        contourPoints=[];
-        lastState.forEach((p,i)=>{
-            const el=document.createElement('div');
-            el.className='point'; el.textContent=i+1;
-            el.style.left=`${p.x}px`; el.style.top=`${p.y}px`;
-            contourLayer.appendChild(el);
-            contourPoints.push({x:p.x,y:p.y,element:el});
-        });
-        updateContourUI();
-    }
-    
-    // Функции сохранения, загрузки и экспорта оставлены для полноты, но сокращены для краткости.
-    // Их логика не менялась и должна быть рабочей.
-    function saveProject() { alert("Функция сохранения проекта."); }
-    function loadProject() { alert("Функция загрузки проекта."); }
-    function generatePreview() { $('#export-size').textContent = '...'; }
-    function exportFinalImage(format) { alert(`Экспорт в ${format}...`); }
-
-    const presetSelect = $('#preset');
-    presetSelect.onchange = generatePreview;
-    $('#exportPng').onclick = () => exportFinalImage('png');
-    $('#exportTif').onclick = () => exportFinalImage('tiff');
+/* ─────────────────────── NAVIGATION ─────────────────────────── */
+function go(n){
+ $('.step.active').classList.remove('active');
+ step=n; $('#s'+n).classList.add('active');
+}
+function saveHist(){ lastState=JSON.stringify({pts:points.map(p=>({x:p.x,y:p.y})),tf:Object.assign({},tf)}); $('#undoBtn').disabled=false }
+/* ─────────────────────── ШАГ 1 – фото ───────────────────────── */
+const zone=$('#photoZone'),pin=$('#photoInput');
+zone.onclick=_=>pin.click();
+pin.onchange=e=>loadPhoto(e.target.files[0]);
+['dragover','dragleave','drop'].forEach(ev=>{
+ zone.addEventListener(ev,e=>{
+  e.preventDefault();
+  if(ev==='dragover')zone.classList.add('drag');
+  if(ev==='dragleave'||ev==='drop')zone.classList.remove('drag');
+  if(ev==='drop')loadPhoto(e.dataTransfer.files[0]);
+ });
 });
+function loadPhoto(f){
+ if(!f||!f.type.startsWith('image/'))return alert('Не изображение');
+ const fr=new FileReader();
+ fr.onload=e=>{
+   const img=new Image();
+   img.onload=_=>{
+     let w=img.width,h=img.height;
+     if(Math.max(w,h)>2000){
+       const k=2000/Math.max(w,h),c=document.createElement('canvas');
+       c.width=w*k; c.height=h*k; c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+       bgData=c.toDataURL('image/jpeg',0.9);
+       alert(`Фото уменьшено до ${c.width}×${c.height}px для плавной работы`);
+     }else bgData=e.target.result;
+     bgImg.src=bgData;
+     cv.width=bgImg.width; cv.height=bgImg.height;
+     go(2);
+   };
+   img.src=e.target.result;
+ };
+ fr.readAsDataURL(f);
+}
+/* ─────────────────────── ШАГ 2 – точки ───────────────────────── */
+const layer=$('#layer'),poly=$('#poly'),pCount=$('#pCount');
+layer.addEventListener('click',e=>{
+ if(points.length>=12)return;
+ const r=layer.getBoundingClientRect(),x=e.clientX-r.left,y=e.clientY-r.top;
+ const dot=document.createElement('div');
+ dot.className='point'; dot.textContent=points.length+1;
+ dot.style.left=x+'px'; dot.style.top=y+'px';
+ layer.append(dot);
+ points.push({x,y,elm:dot});
+ pCount.textContent=points.length;
+ redrawPoly();
+ saveHist();
+ if(points.length>=3){$('#next2').disabled=false;}
+});
+function redrawPoly(){
+ poly.innerHTML='';
+ if(points.length<2)return;
+ const d=points.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ')+' Z';
+ poly.innerHTML=`<path d="${d}" stroke="#4c51bf" stroke-width="2" fill="rgba(76,81,191,.15)"/>`;
+}
+$('#undoBtn').onclick=_=>{
+ if(!lastState)return;
+ const st=JSON.parse(lastState);
+ points.forEach(p=>p.elm.remove()); points=[];
+ st.pts.forEach((p,i)=>{ const el=document.createElement('div');
+   el.className='point'; el.textContent=i+1; el.style.left=p.x+'px';el.style.top=p.y+'px';
+   layer.append(el); points.push({x:p.x,y:p.y,elm:el});
+ });
+ tf=st.tf; pCount.textContent=points.length; redrawPoly();
+ $('#undoBtn').disabled=true;
+};
+$('#next2').onclick=_=>go(3);
+
+/* ─────────────────────── ШАГ 3 – гобо ───────────────────────── */
+$('#goboInput').onchange=e=>{
+ const f=e.target.files[0]; if(!f)return;
+ const fr=new FileReader();
+ fr.onload=ev=>{
+  gobo=new Image();
+  gobo.onload=_=>{
+   $('#gPrev').innerHTML=`<img src="${gobo.src}" style="max-height:180px">`;
+   $('#next3').disabled=false;
+  };
+  gobo.src=ev.target.result;
+ };
+ fr.readAsDataURL(f);
+};
+$('#next3').onclick=_=>{
+ initTransform(); buildMesh(); draw(); go(4);
+};
+
+/* ────────────────── сетка и деформация : Delaunator ─────────── */
+function buildMesh(){
+ /* нормализуем контрольные точки → [0..1]x[0..1] */
+ const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x));
+ const minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
+ const w=maxX-minX,h=maxY-minY;
+ const norm=points.map(p=>[(p.x-minX)/w,(p.y-minY)/h]);
+ const delaunay=Delaunator.from(norm);
+ mesh=[];
+ for(let i=0;i<delaunay.triangles.length;i+=3){
+   const a=delaunay.triangles[i],b=delaunay.triangles[i+1],c=delaunay.triangles[i+2];
+   mesh.push([points[a],points[b],points[c],
+     {sx:norm[a][0]*gobo.width,sy:norm[a][1]*gobo.height},
+     {sx:norm[b][0]*gobo.width,sy:norm[b][1]*gobo.height},
+     {sx:norm[c][0]*gobo.width,sy:norm[c][1]*gobo.height}]);
+ }
+}
+/* аффинная матрица для треугольника */
+function drawTriangle(t){
+ const [p0,p1,p2,s0,s1,s2]=t;
+ ctx.save();
+ ctx.beginPath();
+ ctx.moveTo(p0.x,p0.y); ctx.lineTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.closePath();
+ ctx.clip();
+ const denom=(p0.x*(p1.y-p2.y)+p1.x*(p2.y-p0.y)+p2.x*(p0.y-p1.y));
+ const a=(s0.sx*(p1.y-p2.y)+s1.sx*(p2.y-p0.y)+s2.sx*(p0.y-p1.y))/denom;
+ const b=(s0.sy*(p1.y-p2.y)+s1.sy*(p2.y-p0.y)+s2.sy*(p0.y-p1.y))/denom;
+ const c=(s0.sx*(p2.x-p1.x)+s1.sx*(p0.x-p2.x)+s2.sx*(p1.x-p0.x))/denom;
+ const d=(s0.sy*(p2.x-p1.x)+s1.sy*(p0.x-p2.x)+s2.sy*(p1.x-p0.x))/denom;
+ const e=(s0.sx*(p1.x*p2.y-p2.x*p1.y)+s1.sx*(p2.x*p0.y-p0.x*p2.y)+s2.sx*(p0.x*p1.y-p1.x*p0.y))/denom;
+ const f=(s0.sy*(p1.x*p2.y-p2.x*p1.y)+s1.sy*(p2.x*p0.y-p0.x*p2.y)+s2.sy*(p0.x*p1.y-p1.x*p0.y))/denom;
+ ctx.transform(a,b,c,d,e,f);
+ ctx.drawImage(gobo,0,0);
+ ctx.restore();
+}
+
+/* ─────────────────────── трансформация ─────────────────────── */
+function initTransform(){
+ /* центр полигона */
+ const xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+ const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
+ tf.base=Math.max(...xs)-Math.min(...xs);
+ tf.x=cx; tf.y=cy; tf.s=1; tf.r=0; tf.o=1;
+ $('#opa').value=100; $('#scl').value=100; $('#rot').value=0;
+}
+function draw(){
+ ctx.clearRect(0,0,cv.width,cv.height);
+ if(!showOverlay)return;
+ ctx.globalAlpha=tf.o;
+ /* обойдём точечную сетку — просто рисуем треугольники */
+ ctx.save();
+ ctx.translate(tf.x,tf.y);
+ ctx.rotate(tf.r*Math.PI/180);
+ ctx.scale(tf.s,tf.s);
+ ctx.translate(-tf.x,-tf.y);
+ mesh.forEach(drawTriangle);
+ ctx.restore();
+}
+/* ────────────── ползунки и кнопки на шаге 4 ─────────────────── */
+$('#opa').oninput=e=>{tf.o=e.target.value/100;draw();}
+$('#scl').oninput=e=>{tf.s=e.target.value/100;draw();}
+$('#rot').oninput=e=>{tf.r=e.target.value;draw();}
+$('#eyeBtn').onclick=_=>{
+ showOverlay=!showOverlay; draw();
+ $('#eyeBtn').textContent=showOverlay?'👁 Скрыть':'👁 Показать';
+};
+$('#help').onclick=intro;
+$('#next4').onclick=_=>{renderPreview();go(5);};
+
+/* ─────────────────────── PREVIEW + EXPORT ──────────────────── */
+function renderPreview(){
+ const prev=$('#prev'); const size=3401;
+ prev.width=prev.height=size;
+ prev.getContext('2d').drawImage(cv,0,0,size,size);
+}
+function download(blob,name){
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob); a.download=name; a.click();
+ setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+$('#savePNG').onclick=_=>{
+ cv.toBlob(b=>download(b,'gobo.png'),'image/png');
+};
+$('#saveTIF').onclick=_=>{
+ const rgbaCtx=cv.getContext('2d');
+ const imgData=rgbaCtx.getImageData(0,0,cv.width,cv.height);
+ const tiff=UTIF.encodeImage(imgData.data,cv.width,cv.height,{});
+ const blob=new Blob([tiff],{type:'image/tiff'});
+ download(blob,'gobo.tiff');
+};
+
+/* ─────── сохранение/загрузка проекта (JSON, base64 inside) ─── */
+$('#saveJSON').onclick=_=>{
+ const obj={bg:bgData,gobo:gobo.src,pts:points.map(p=>({x:p.x,y:p.y})),tf};
+ download(new Blob([JSON.stringify(obj)],{type:'application/json'}),'gobo-project.json');
+};
+$('#loadJSON').onclick=_=>{
+ const i=document.createElement('input'); i.type='file'; i.accept='.json';
+ i.onchange=e=>{
+   const fr=new FileReader();
+   fr.onload=ev=>{
+    const d=JSON.parse(ev.target.result);
+    bgData=d.bg; gobo=new Image(); gobo.src=d.gobo;
+    gobo.onload=_=>{
+      bgImg.src=bgData; cv.width=bgImg.width; cv.height=bgImg.height;
+      points.forEach(p=>p.elm.remove()); points=[];
+      d.pts.forEach((p,i)=>{
+        const dot=document.createElement('div');
+        dot.className='point'; dot.textContent=i+1; dot.style.left=p.x+'px';dot.style.top=p.y+'px';
+        layer.append(dot); points.push({x:p.x,y:p.y,elm:dot});
+      });
+      pCount.textContent=points.length; redrawPoly();
+      tf=d.tf; buildMesh(); draw(); go(4);
+    };
+   };
+   fr.readAsText(e.target.files[0]);
+ };
+ i.click();
+};
+
+/* ───────────────────────── PWA SW ──────────────────────────── */
+if('serviceWorker' in navigator){
+ navigator.serviceWorker.register('sw.js').catch(console.warn);
+}
 </script>
+
+<!-- ─── мини‑manifest (положи рядом manifest.json для PWA) ───
+{
+ "name": "GOBO Calculator‑Pro",
+ "short_name": "GOBOCalc",
+ "start_url": "./",
+ "display": "standalone",
+ "background_color": "#4c51bf",
+ "theme_color": "#4c51bf",
+ "icons": [
+  { "src": "icon-192.png", "sizes":"192x192", "type":"image/png" },
+  { "src": "icon-512.png", "sizes":"512x512", "type":"image/png" }
+ ]
+}
+─────────────── SW.js (очень простой) ────────────────
+const CACHE = 'gobo‑v1';
+self.addEventListener('install', e=>{
+ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./','index.html','UTIF.min.js','delaunator.min.js'])));
+ self.skipWaiting();
+});
+self.addEventListener('fetch', e=> {
+ e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+});
+-->
 </body>
 </html>
