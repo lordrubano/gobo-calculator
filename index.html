@@ -1,160 +1,104 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>GOBO Calculator PRO</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#2D3748">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background: #f8f9fa;
-      color: #222;
-    }
-    header {
-      background: #2D3748;
-      color: white;
-      padding: 1rem;
-      text-align: center;
-    }
-    header h1 {
-      margin: 0;
-      font-size: 1.8rem;
-    }
-    .container {
-      max-width: 960px;
-      margin: auto;
-      padding: 1rem;
-      background: white;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    canvas {
-      border: 1px solid #ccc;
-      max-width: 100%;
-      display: block;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-    .controls label {
-      font-size: 0.9rem;
-      display: flex;
-      flex-direction: column;
-    }
-    .actions {
-      margin: 1rem 0;
-    }
-    .actions button {
-      margin-right: 0.5rem;
-    }
-    .point {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: red;
-      position: absolute;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-      z-index: 10;
-    }
-    #canvasWrapper {
-      position: relative;
-    }
-    #photo {
-      display: block;
-      max-width: 100%;
-      height: auto;
-    }
-    #editorCanvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      z-index: 5;
-    }
+    body { font-family: sans-serif; margin: 0; background: #f2f2f2; color: #222; }
+    header { background: #2d3748; color: #fff; padding: 1rem; text-align: center; }
+    .container { max-width: 960px; margin: 2rem auto; padding: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 0 8px rgba(0,0,0,0.1); }
+    #canvasWrapper { position: relative; }
+    #photo { display: block; max-width: 100%; }
+    #editorCanvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+    .point { width: 12px; height: 12px; background: red; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); pointer-events: auto; }
+    .controls, .actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; align-items: center; }
+    label { display: flex; flex-direction: column; font-size: 0.9rem; }
+    button { padding: 0.4rem 0.8rem; cursor: pointer; }
   </style>
 </head>
 <body>
   <header>
-    <h1>GOBO Calculator PRO + PDF</h1>
-    <p>Инженерный инструмент для точной коррекции проекционного изображения</p>
+    <h1>GOBO Calculator PRO</h1>
+    <p>Точная деформация и экспорт гобо слайдов (PNG / PDF)</p>
   </header>
   <div class="container">
     <input type="file" id="photoInput" accept="image/*">
     <input type="file" id="goboInput" accept="image/*">
-
     <div id="canvasWrapper">
-      <img id="photo" alt="Фото" />
+      <img id="photo" />
       <canvas id="editorCanvas"></canvas>
     </div>
 
     <div class="controls">
-      <label>Прозрачность
-        <input type="range" id="opacitySlider" min="0" max="100" value="100">
-      </label>
-      <label>Масштаб
-        <input type="range" id="scaleSlider" min="10" max="300" value="100">
-      </label>
-      <label>Поворот
-        <input type="range" id="rotateSlider" min="-180" max="180" value="0">
-      </label>
-      <label>Диаметр слайда (мм)
-        <input type="number" id="slideDiameter" min="10" max="100" value="32">
-      </label>
+      <label>Прозрачность<input type="range" id="opacitySlider" min="0" max="100" value="100"></label>
+      <label>Масштаб<input type="range" id="scaleSlider" min="10" max="300" value="100"></label>
+      <label>Поворот<input type="range" id="rotateSlider" min="-180" max="180" value="0"></label>
+      <label>Диаметр слайда (мм)<input type="number" id="slideDiameter" value="32" min="10" max="100"></label>
     </div>
 
     <div class="actions">
-      <button id="saveBtn">💾 Сохранить проект</button>
-      <button id="loadBtn">📂 Загрузить проект</button>
+      <button id="saveBtn">💾 Сохранить</button>
+      <button id="loadBtn">📂 Загрузить</button>
       <button id="exportPNG">📤 PNG</button>
-      <button id="exportTIFF">📤 TIFF</button>
       <button id="exportPDF">📄 PDF</button>
     </div>
 
     <div>
-      <p>Добавьте до 32 точек, щёлкая по фото. Используйте мышь или касание.</p>
+      <p>Кликните по фото — добавьте до 32 точек. Используйте мышь или касание.</p>
       <button id="undo">↶ Undo</button>
       <button id="redo">↷ Redo</button>
       <button id="clear">Очистить</button>
     </div>
   </div>
-  <script>
-    let photo = document.getElementById("photo");
-    let canvas = document.getElementById("editorCanvas");
-    let ctx = canvas.getContext("2d");
-    let points = [];
-    let project = { x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 };
-    let goboImg = null;
-    let history = [], future = [];
 
-    function resizeCanvasToImage() {
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    const photo = document.getElementById('photo');
+    const canvas = document.getElementById('editorCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvasWrapper');
+    let gobo = null;
+    let points = [], history = [], future = [];
+    let transform = { x: 0, y: 0, scale: 1, rotate: 0, opacity: 1 };
+
+    const maxPoints = 32;
+
+    function updateCanvasSize() {
       canvas.width = photo.naturalWidth;
       canvas.height = photo.naturalHeight;
-      canvas.style.width = photo.clientWidth + "px";
-      canvas.style.height = photo.clientHeight + "px";
+      canvas.style.width = photo.clientWidth + 'px';
+      canvas.style.height = photo.clientHeight + 'px';
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (!goboImg) return;
+      if (!gobo) return;
       ctx.save();
-      ctx.globalAlpha = project.opacity;
-      ctx.translate(project.x, project.y);
-      ctx.rotate(project.rotate * Math.PI / 180);
-      ctx.scale(project.scale, project.scale);
-      ctx.translate(-goboImg.width / 2, -goboImg.height / 2);
-      ctx.drawImage(goboImg, 0, 0);
+      ctx.globalAlpha = transform.opacity;
+      ctx.translate(transform.x, transform.y);
+      ctx.rotate(transform.rotate * Math.PI / 180);
+      ctx.scale(transform.scale, transform.scale);
+      ctx.drawImage(gobo, -gobo.width / 2, -gobo.height / 2);
       ctx.restore();
     }
 
-    function updateControls() {
-      project.opacity = opacitySlider.value / 100;
-      project.scale = scaleSlider.value / 100;
-      project.rotate = +rotateSlider.value;
-      draw();
+    function saveHistory() {
+      history.push(JSON.stringify({ points, transform }));
+      if (history.length > 100) history.shift();
+      future = [];
+    }
+
+    function renderPoints() {
+      document.querySelectorAll(".point").forEach(p => p.remove());
+      const rect = canvas.getBoundingClientRect();
+      points.forEach((pt, i) => {
+        const el = document.createElement("div");
+        el.className = "point";
+        el.style.left = rect.left + pt.x * rect.width / canvas.width + "px";
+        el.style.top = rect.top + pt.y * rect.height / canvas.height + "px";
+        wrapper.appendChild(el);
+      });
     }
 
     document.getElementById("photoInput").onchange = e => {
@@ -164,7 +108,9 @@
       reader.onload = ev => {
         photo.src = ev.target.result;
         photo.onload = () => {
-          resizeCanvasToImage();
+          updateCanvasSize();
+          transform.x = canvas.width / 2;
+          transform.y = canvas.height / 2;
           draw();
         };
       };
@@ -176,116 +122,113 @@
       if (!file) return;
       const reader = new FileReader();
       reader.onload = ev => {
-        goboImg = new Image();
-        goboImg.onload = () => draw();
-        goboImg.src = ev.target.result;
+        gobo = new Image();
+        gobo.src = ev.target.result;
+        gobo.onload = () => draw();
       };
       reader.readAsDataURL(file);
     };
 
-    opacitySlider.oninput = updateControls;
-    scaleSlider.oninput = updateControls;
-    rotateSlider.oninput = updateControls;
-
     canvas.addEventListener("click", e => {
-      if (points.length >= 32) return;
+      if (points.length >= maxPoints) return;
       const rect = canvas.getBoundingClientRect();
-      const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-      const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+      const x = (e.clientX - rect.left) * canvas.width / rect.width;
+      const y = (e.clientY - rect.top) * canvas.height / rect.height;
       points.push({ x, y });
-      const div = document.createElement("div");
-      div.className = "point";
-      div.style.left = e.clientX + "px";
-      div.style.top = e.clientY + "px";
-      document.getElementById("canvasWrapper").appendChild(div);
-      saveState();
+      renderPoints();
+      saveHistory();
     });
 
-    function saveState() {
-      history.push(JSON.stringify({ points, project }));
-      if (history.length > 100) history.shift();
-      future = [];
-    }
-
-    undo.onclick = () => {
-      if (history.length > 0) {
-        future.push(JSON.stringify({ points, project }));
-        let state = JSON.parse(history.pop());
-        points = state.points;
-        project = state.project;
-        draw();
-      }
-    };
-
-    redo.onclick = () => {
-      if (future.length > 0) {
-        history.push(JSON.stringify({ points, project }));
-        let state = JSON.parse(future.pop());
-        points = state.points;
-        project = state.project;
-        draw();
-      }
-    };
-
-    clear.onclick = () => {
-      points = [];
+    document.getElementById("opacitySlider").oninput = e => {
+      transform.opacity = e.target.value / 100;
       draw();
-      document.querySelectorAll(".point").forEach(p => p.remove());
-      saveState();
+    };
+    document.getElementById("scaleSlider").oninput = e => {
+      transform.scale = e.target.value / 100;
+      draw();
+    };
+    document.getElementById("rotateSlider").oninput = e => {
+      transform.rotate = parseInt(e.target.value);
+      draw();
     };
 
-    saveBtn.onclick = () => {
-      const blob = new Blob(
-        [JSON.stringify({ points, project, gobo: goboImg?.src, photo: photo.src })],
-        { type: "application/json" }
-      );
+    document.getElementById("clear").onclick = () => {
+      points = [];
+      renderPoints();
+      draw();
+      saveHistory();
+    };
+    document.getElementById("undo").onclick = () => {
+      if (!history.length) return;
+      future.push(JSON.stringify({ points, transform }));
+      let state = JSON.parse(history.pop());
+      points = state.points;
+      transform = state.transform;
+      renderPoints();
+      draw();
+    };
+    document.getElementById("redo").onclick = () => {
+      if (!future.length) return;
+      history.push(JSON.stringify({ points, transform }));
+      let state = JSON.parse(future.pop());
+      points = state.points;
+      transform = state.transform;
+      renderPoints();
+      draw();
+    };
+
+    document.getElementById("saveBtn").onclick = () => {
+      const data = { points, transform, gobo: gobo?.src || null, photo: photo.src };
+      const blob = new Blob([JSON.stringify(data)], { type: "application/json" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "gobo-project.json";
       a.click();
     };
 
-    loadBtn.onclick = () => {
+    document.getElementById("loadBtn").onclick = () => {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = ".json";
       input.onchange = e => {
-        const file = e.target.files[0];
         const reader = new FileReader();
         reader.onload = ev => {
           const data = JSON.parse(ev.target.result);
           points = data.points;
-          project = data.project;
-          photo.src = data.photo;
-          goboImg = new Image();
-          goboImg.src = data.gobo;
-          goboImg.onload = () => {
-            photo.onload = () => {
-              resizeCanvasToImage();
-              draw();
-            };
+          transform = data.transform;
+          if (data.photo) photo.src = data.photo;
+          if (data.gobo) {
+            gobo = new Image();
+            gobo.src = data.gobo;
+            gobo.onload = () => draw();
+          }
+          photo.onload = () => {
+            updateCanvasSize();
+            renderPoints();
+            draw();
           };
         };
-        reader.readAsText(file);
+        reader.readAsText(e.target.files[0]);
       };
       input.click();
     };
 
     function mmToPx(mm, dpi = 2700) {
-      return Math.round((mm / 25.4) * dpi);
+      return Math.round(mm / 25.4 * dpi);
     }
 
-    exportPNG.onclick = () => {
-      const px = mmToPx(+slideDiameter.value);
-      const temp = document.createElement("canvas");
-      temp.width = temp.height = px;
-      const ctx2 = temp.getContext("2d");
-      ctx2.fillStyle = "black";
-      ctx2.beginPath();
-      ctx2.arc(px / 2, px / 2, px / 2, 0, 2 * Math.PI);
-      ctx2.fill();
-      ctx2.drawImage(canvas, 0, 0, px, px);
-      temp.toBlob(blob => {
+    document.getElementById("exportPNG").onclick = () => {
+      const mm = parseFloat(document.getElementById("slideDiameter").value);
+      const px = mmToPx(mm);
+      const tmp = document.createElement("canvas");
+      tmp.width = tmp.height = px;
+      const tctx = tmp.getContext("2d");
+      tctx.fillStyle = "black";
+      tctx.beginPath();
+      tctx.arc(px / 2, px / 2, px / 2, 0, Math.PI * 2);
+      tctx.fill();
+      tctx.drawImage(canvas, 0, 0, px, px);
+      tmp.toBlob(blob => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = "gobo.png";
@@ -293,29 +236,22 @@
       });
     };
 
-    exportPDF.onclick = async () => {
-      const px = mmToPx(+slideDiameter.value);
+    document.getElementById("exportPDF").onclick = () => {
+      const mm = parseFloat(document.getElementById("slideDiameter").value);
+      const px = mmToPx(mm);
+      const tmp = document.createElement("canvas");
+      tmp.width = tmp.height = px;
+      const tctx = tmp.getContext("2d");
+      tctx.fillStyle = "black";
+      tctx.beginPath();
+      tctx.arc(px / 2, px / 2, px / 2, 0, Math.PI * 2);
+      tctx.fill();
+      tctx.drawImage(canvas, 0, 0, px, px);
+      const dataUrl = tmp.toDataURL("image/png");
       const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: [px * 0.75, px * 0.75]
-      });
-      const temp = document.createElement("canvas");
-      temp.width = temp.height = px;
-      const ctx2 = temp.getContext("2d");
-      ctx2.fillStyle = "black";
-      ctx2.beginPath();
-      ctx2.arc(px / 2, px / 2, px / 2, 0, 2 * Math.PI);
-      ctx2.fill();
-      ctx2.drawImage(canvas, 0, 0, px, px);
-      const dataUrl = temp.toDataURL("image/png");
-      pdf.addImage(dataUrl, 'PNG', 0, 0, px * 0.75, px * 0.75);
+      const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [px, px] });
+      pdf.addImage(dataUrl, "PNG", 0, 0, px, px);
       pdf.save("gobo.pdf");
-    };
-
-    exportTIFF.onclick = () => {
-      alert("TIFF-экспорт пока временно отключён (встрою по запросу). Используйте PNG или PDF.");
     };
   </script>
 </body>
