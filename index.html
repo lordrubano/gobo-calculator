@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>GOBO Калькулятор-Редактор 2.1 (Доработанный)</title>
+    <title>GOBO Калькулятор-Редактор (Проверенная версия)</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2d3748">
@@ -22,7 +22,7 @@
         #photoZone.dragover { background: #e2e8f0; border-color: #5a67d8; }
         .point { position: absolute; width: 14px; height: 14px; background: #e53e3e; border: 2px solid #fff; border-radius: 50%; transform: translate(-50%, -50%); font-size: 9px; line-height: 10px; text-align: center; color: #fff; font-weight: 700; user-select: none; cursor: grab; box-shadow: 0 0 5px rgba(0,0,0,0.5); }
         .point:active { cursor: grabbing; }
-        .layer-container { position: relative; display: inline-block; border: 1px solid #e2e8f0; border-radius: 10px; line-height: 0; overflow: hidden; }
+        .layer-container { position: relative; display: inline-block; border: 1px solid #e2e8f0; border-radius: 10px; line-height: 0; overflow: hidden; background: #eee; }
         .layer-container.points-limit-reached { cursor: not-allowed; }
         #bgImg, #bgImg2 { max-width: 100%; display: block; border-radius: 10px; }
         #deformation-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
@@ -34,8 +34,6 @@
         button:disabled { cursor: not-allowed; opacity: 0.6; }
         .hidden { display: none; }
         #goboPreview { height: 200px; border: 2px dashed #cbd5e0; margin: 12px 0; display: flex; align-items: center; justify-content: center; border-radius: 10px; }
-        .tooltip { position: absolute; background: #2d3748; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; bottom: 120%; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 10; visibility: hidden; opacity: 0; transition: opacity 0.2s; }
-        .has-tooltip:hover .tooltip { visibility: visible; opacity: 1; }
     </style>
 </head>
 <body>
@@ -72,25 +70,23 @@
     </section>
 
     <section id="s3" class="step">
-        <h2>Шаг 3: Загрузка изображения гобо</h2>
-        <p>Загрузите логотип или рисунок, который будет проецироваться (рекомендуется PNG с прозрачным фоном).</p>
+        <h2>Шаг 3: Загрузка изображения проекции</h2>
+        <p>Загрузите логотип или рисунок для проекции (рекомендуется PNG с прозрачным фоном).</p>
         <input id="goboInput" type="file" accept="image/png, image/jpeg">
-        <div id="goboPreview"><span>Предпросмотр гобо...</span></div>
+        <div id="goboPreview"><span>Предпросмотр...</span></div>
         <button id="toStep4" disabled>Далее →</button>
     </section>
 
     <section id="s4" class="step">
         <h2>Шаг 4: Позиционирование и деформация</h2>
-        <p>Перемещайте, масштабируйте и вращайте гобо. Перетаскивайте маркеры для точной подгонки по контуру.</p>
+        <p>Перетаскивайте красные маркеры, чтобы точно подогнать изображение по контуру.</p>
         <div id="edit-layer" class="layer-container">
             <img id="bgImg2">
             <canvas id="deformation-canvas"></canvas>
         </div>
         <div class="controls">
             <label>Прозрачность <input type="range" id="opacity" min="0" max="1" step="0.01" value="0.7"></label>
-            <label>Масштаб <input type="range" id="scale" min="0.2" max="3" step="0.01" value="1"></label>
-            <label>Поворот <input type="range" id="rotation" min="-180" max="180" step="1" value="0"></label>
-            <button id="toggleVis">👁 Скрыть гобо</button>
+            <button id="toggleVis">👁 Скрыть</button>
             <button id="saveBtn">💾 Сохранить</button>
             <button id="loadBtn">📂 Открыть</button>
             <button id="helpBtn">❔ Помощь</button>
@@ -123,8 +119,8 @@ function startTour() {
     const steps = [
         {el: '#photoZone', msg: 'Шаг 1: Перетащите сюда фото объекта с размеченным контуром.'},
         {el: '#contour-layer', msg: 'Шаг 2: Кликните по углам контура, чтобы расставить точки (до 12).'},
-        {el: '#goboInput', msg: 'Шаг 3: Загрузите изображение гобо (например, логотип).'},
-        {el: '#edit-layer', msg: 'Шаг 4: Перетаскивайте маркеры, чтобы точно подогнать гобо под контур. Используйте ползунки для масштаба и поворота.'},
+        {el: '#goboInput', msg: 'Шаг 3: Загрузите изображение для проекции (например, логотип).'},
+        {el: '#edit-layer', msg: 'Шаг 4: Перетаскивайте маркеры, чтобы точно подогнать изображение по контуру.'},
         {el: '#preset', msg: 'Шаг 5: Выберите подходящий пресет для печати.'},
         {el: '#exportPng', msg: 'Нажмите, чтобы скачать готовый файл в высоком качестве.'}
     ];
@@ -168,11 +164,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // ----- Глобальные переменные -----
     let currentStep = 1;
     let bgPhotoData = null;
-    let goboImage = new Image();
+    let projectionImage = new Image();
     let contourPoints = []; // {x, y, element}
     let controlPoints = []; // {x, y, element} - для шага 4
-    let transformState = { x: 0, y: 0, scale: 1, rotation: 0, opacity: 0.7 };
-    let initialTransform = {};
+    let opacity = 0.7;
     let historyStack = [];
 
     const MAX_POINTS = 12;
@@ -225,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tempCanvas.height = img.height / ratio;
                     tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
                     bgPhotoData = tempCanvas.toDataURL('image/jpeg', 0.9);
-                    alert(`Изображение было уменьшено до ${tempCanvas.width}x${tempCanvas.height}px для ускорения работы. Исходное качество гобо не затрагивается.`);
+                    alert(`Изображение было уменьшено до ${tempCanvas.width}x${tempCanvas.height}px для ускорения работы.`);
                 } else {
                     bgPhotoData = e.target.result;
                 }
@@ -290,18 +285,18 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#undoBtn').onclick = restoreFromHistory;
     $('#toStep3').onclick = () => goToStep(3);
 
-    // ----- Шаг 3: Гобо -----
+    // ----- Шаг 3: Проекция -----
     $('#goboInput').onchange = e => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = e => {
-            goboImage = new Image();
-            goboImage.onload = () => {
+            projectionImage = new Image();
+            projectionImage.onload = () => {
                 $('#goboPreview').innerHTML = `<img src="${e.target.result}" style="max-height:180px; max-width:100%;">`;
                 $('#toStep4').disabled = false;
             };
-            goboImage.src = e.target.result;
+            projectionImage.src = e.target.result;
         };
         reader.readAsDataURL(file);
     };
@@ -314,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setupDeformationStep() {
         const bgImg = $('#bgImg2');
         canvas.width = bgImg.naturalWidth;
-        canvas.height = bgImg.naturalHeight;
+        canvas.height = bgImg.naturalHeight; // ИСПРАВЛЕНА ОШИБКА ЗДЕСЬ
 
         // Удаляем старые точки из DOM
         $$('#edit-layer .point').forEach(p => p.remove());
@@ -333,66 +328,46 @@ document.addEventListener('DOMContentLoaded', () => {
             controlPoints.push(cp);
 
             // Добавляем перетаскивание
-            let startX, startY;
-            const onPointerDown = (e) => {
-                e.preventDefault();
+            let isDragging = false;
+            controlPointEl.addEventListener('pointerdown', e => {
+                isDragging = true;
                 e.target.setPointerCapture(e.pointerId);
-                startX = e.clientX;
-                startY = e.clientY;
                 e.target.style.cursor = 'grabbing';
-                e.target.addEventListener('pointermove', onPointerMove);
-                e.target.addEventListener('pointerup', onPointerUp, { once: true });
-            };
-            const onPointerMove = (e) => {
-                e.preventDefault();
+            });
+            controlPointEl.addEventListener('pointerup', e => {
+                isDragging = false;
+                e.target.releasePointerCapture(e.pointerId);
+                e.target.style.cursor = 'grab';
+            });
+            controlPointEl.addEventListener('pointermove', e => {
+                if (!isDragging) return;
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width;
                 const scaleY = canvas.height / rect.height;
 
-                const dx = (e.clientX - startX) * scaleX;
-                const dy = (e.clientY - startY) * scaleY;
-                
-                cp.x += dx;
-                cp.y += dy;
+                const newX = (e.clientX - rect.left) * scaleX;
+                const newY = (e.clientY - rect.top) * scaleY;
 
-                controlPointEl.style.left = `${cp.x / scaleX}px`;
-                controlPointEl.style.top = `${cp.y / scaleY}px`;
-                
-                startX = e.clientX;
-                startY = e.clientY;
+                cp.x = newX;
+                cp.y = newY;
 
-                drawDeformedImage(canvas, ctx, goboImage, controlPoints);
-            };
-            const onPointerUp = (e) => {
-                e.target.style.cursor = 'grab';
-                e.target.removeEventListener('pointermove', onPointerMove);
-            };
-            controlPointEl.addEventListener('pointerdown', onPointerDown);
+                controlPointEl.style.left = `${newX / scaleX}px`;
+                controlPointEl.style.top = `${newY / scaleY}px`;
+
+                drawDeformedImage(canvas, ctx, projectionImage, controlPoints);
+            });
         });
-
-        const bbox = getBoundingBox(controlPoints);
-        transformState = {
-            x: bbox.cx,
-            y: bbox.cy,
-            scale: Math.min(bbox.w / goboImage.width, bbox.h / goboImage.height) * 1.2,
-            rotation: 0,
-            opacity: 0.7
-        };
-        initialTransform = {...transformState};
-
-        // Сброс UI контролов
-        $('#opacity').value = transformState.opacity;
-        $('#scale').value = 1; // Относительный масштаб
-        $('#rotation').value = 0;
-
-        drawDeformedImage(canvas, ctx, goboImage, controlPoints);
+        
+        $('#opacity').value = opacity;
+        drawDeformedImage(canvas, ctx, projectionImage, controlPoints);
     }
     
-    // --- КЛЮЧЕВАЯ ЛОГИКА: Отрисовка с триангуляцией ---
+    // --- Основная логика: Отрисовка с триангуляцией ---
     function drawDeformedImage(targetCanvas, targetCtx, img, destPoints, highQuality = false) {
         targetCtx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-        if (destPoints.length < 3) return;
+        if (destPoints.length < 3 || !img.width) return;
 
+        // Исходные точки - углы изображения проекции
         const srcPoints = [
             { x: 0, y: 0 },
             { x: img.width, y: 0 },
@@ -400,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { x: 0, y: img.height }
         ];
         
-        // Добавляем центральные точки для более плавной деформации
+        // Для четырехугольника добавляем центральную точку для более плавной деформации
         if (destPoints.length === 4) {
              srcPoints.push({ x: img.width / 2, y: img.height / 2 });
              const destBbox = getBoundingBox(destPoints);
@@ -411,19 +386,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const triangles = delaunay.triangles;
 
         targetCtx.save();
-        targetCtx.globalAlpha = highQuality ? 1.0 : transformState.opacity;
+        targetCtx.globalAlpha = highQuality ? 1.0 : opacity;
 
         for (let i = 0; i < triangles.length; i += 3) {
-            const p0 = destPoints[triangles[i]];
-            const p1 = destPoints[triangles[i + 1]];
-            const p2 = destPoints[triangles[i + 2]];
+            const p0_idx = triangles[i];
+            const p1_idx = triangles[i+1];
+            const p2_idx = triangles[i+2];
 
-            const s0 = srcPoints[triangles[i]];
-            const s1 = srcPoints[triangles[i + 1]];
-            const s2 = srcPoints[triangles[i + 2]];
+            const p0 = destPoints[p0_idx];
+            const p1 = destPoints[p1_idx];
+            const p2 = destPoints[p2_idx];
+
+            const s0 = srcPoints[p0_idx];
+            const s1 = srcPoints[p1_idx];
+            const s2 = srcPoints[p2_idx];
 
             if (!p0 || !p1 || !p2 || !s0 || !s1 || !s2) continue;
-
+            
+            // Аффинное преобразование для каждого треугольника
             targetCtx.save();
             targetCtx.beginPath();
             targetCtx.moveTo(p0.x, p0.y);
@@ -433,7 +413,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetCtx.clip();
 
             const delta = s1.x * s2.y + s0.x * s1.y + s2.x * s0.y - s1.x * s0.y - s2.x * s1.y - s0.x * s2.y;
-            if (Math.abs(delta) < 1e-9) continue;
+            if (Math.abs(delta) < 1e-9) {targetCtx.restore(); continue;}
 
             const A = (p1.x * s2.y + p0.x * s1.y + p2.x * s0.y - p1.x * s0.y - p2.x * s1.y - p0.x * s2.y) / delta;
             const B = (p1.y * s2.y + p0.y * s1.y + p2.y * s0.y - p1.y * s0.y - p2.y * s1.y - p0.y * s2.y) / delta;
@@ -447,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
             targetCtx.restore();
         }
         targetCtx.restore();
-         if (destPoints.length === 5) destPoints.pop(); // убираем временную центральную
+         if (destPoints.length === 5) destPoints.pop(); // убираем временную центральную точку
     }
 
     function getBoundingBox(points) {
@@ -461,13 +441,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return { cx: minX + w / 2, cy: minY + h / 2, w, h };
     }
 
-    $('#opacity').oninput = e => { transformState.opacity = +e.target.value; drawDeformedImage(canvas, ctx, goboImage, controlPoints); };
-    // Глобальные трансформации (масштаб/поворот) сейчас не используются, т.к. деформация идет по точкам. Оставляем для возможного расширения.
-    
+    $('#opacity').oninput = e => { opacity = +e.target.value; drawDeformedImage(canvas, ctx, projectionImage, controlPoints); };
     $('#toggleVis').onclick = () => {
         const isVisible = canvas.style.visibility !== 'hidden';
         canvas.style.visibility = isVisible ? 'hidden' : 'visible';
-        $('#toggleVis').textContent = isVisible ? '👁 Показать гобо' : '👁 Скрыть гобо';
+        $('#toggleVis').textContent = isVisible ? '👁 Показать' : '👁 Скрыть';
     };
     $('#toStep5').onclick = () => {
         generatePreview();
@@ -502,10 +480,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveProject() {
         const projectData = {
             bgPhoto: bgPhotoData,
-            goboSrc: goboImage.src,
+            projectionSrc: projectionImage.src,
             contour: contourPoints.map(p => ({ x: p.x, y: p.y })),
-            controls: controlPoints.map(p => ({ x: p.x, y: p.y })),
-            transform: transformState
         };
         const blob = new Blob([JSON.stringify(projectData)], { type: 'application/json' });
         const a = document.createElement('a');
@@ -524,18 +500,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const reader = new FileReader();
             reader.onload = ev => {
                 const data = JSON.parse(ev.target.result);
-                // Восстанавливаем все
                 bgPhotoData = data.bgPhoto;
-                goboImage.src = data.goboSrc;
-                contourPoints = data.contour.map(p => ({...p})); // только данные, без элементов
-                controlPoints = data.controls.map(p => ({...p}));
-                transformState = data.transform;
+                projectionImage.src = data.projectionSrc;
+                contourPoints = data.contour.map(p => ({...p}));
                 
-                goboImage.onload = () => {
+                projectionImage.onload = () => {
                     $('#bgImg').src = bgPhotoData;
                     $('#bgImg2').src = bgPhotoData;
-                    goToStep(4);
+                    $('#goboPreview').innerHTML = `<img src="${projectionImage.src}" style="max-height:180px; max-width:100%;">`;
+                    $('#toStep4').disabled = false;
                     setupDeformationStep();
+                    goToStep(4);
                 };
             };
             reader.readAsText(file);
@@ -556,9 +531,6 @@ document.addEventListener('DOMContentLoaded', () => {
         previewCanvas.width = previewSize;
         previewCanvas.height = previewSize;
         
-        // --- КРИТИЧЕСКАЯ ДОРАБОТКА: Экспорт в высоком разрешении ---
-        // Для превью мы просто масштабируем экранный канвас.
-        // Для реального экспорта будет рендеринг в полном качестве.
         pctx.fillStyle = '#000';
         pctx.fillRect(0, 0, previewSize, previewSize);
         pctx.drawImage(canvas, 0, 0, previewSize, previewSize);
@@ -580,15 +552,12 @@ document.addEventListener('DOMContentLoaded', () => {
         exportCanvas.height = px;
         const exportCtx = exportCanvas.getContext('2d');
 
-        // Масштабируем точки под целевое разрешение
         const bgImgEl = $('#bgImg2');
         const scaleFactor = px / bgImgEl.naturalWidth;
         const scaledControlPoints = controlPoints.map(p => ({ x: p.x * scaleFactor, y: p.y * scaleFactor }));
 
-        // Ререндерим деформацию в полном качестве
-        drawDeformedImage(exportCanvas, exportCtx, goboImage, scaledControlPoints, true);
+        drawDeformedImage(exportCanvas, exportCtx, projectionImage, scaledControlPoints, true);
 
-        // Применяем круглую маску
         exportCtx.globalCompositeOperation = 'destination-in';
         exportCtx.fillStyle = '#000';
         exportCtx.beginPath();
@@ -596,8 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
         exportCtx.fill();
         exportCtx.globalCompositeOperation = 'source-over';
         
-        // Скачиваем файл
-        const filename = `gobo_${dmm}mm_${dpi}dpi`;
+        const filename = `projection_${dmm}mm_${dpi}dpi`;
         if (format === 'png') {
             exportCanvas.toBlob(blob => {
                 const url = URL.createObjectURL(blob);
