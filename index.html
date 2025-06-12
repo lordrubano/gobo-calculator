@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Редактор Проекции (Автономная версия)</title>
+    <title>Редактор Проекции (ФИНАЛЬНАЯ ВЕРСИЯ)</title>
     <style>
-        /* CSS КОД */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; color: #1c1e21; }
         .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden; }
         .header { background: #1877f2; color: white; padding: 24px 30px; text-align: center; }
@@ -19,12 +18,10 @@
         .step-number { background: #1877f2; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 16px; flex-shrink: 0; }
         .step-header h2 { margin: 0; font-size: 20px; }
         .upload-zone { border: 2px dashed #ccd0d5; border-radius: 8px; padding: 50px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin: 20px 0; background: #f7f8fa; }
-        .upload-zone:hover, .upload-zone.dragover { border-color: #1877f2; background: #e7f3ff; }
+        .upload-zone:hover { border-color: #1877f2; background: #e7f3ff; }
         .image-container { position: relative; display: inline-block; margin: 20px 0; border: 1px solid #dddfe2; border-radius: 8px; overflow: hidden; line-height: 0; }
         .image-container img { max-width: 100%; max-height: 500px; display: block; }
-        .point { position: absolute; width: 14px; height: 14px; border: 3px solid white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,0.5); z-index: 10; }
-        .point.contour-point { cursor: default; background: #333; border: 2px solid white; }
-        .point.movable-point { cursor: move; }
+        .point { position: absolute; width: 14px; height: 14px; border: 3px solid white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,0.5); z-index: 10; cursor: move; }
         .point::after { content: attr(data-number); position: absolute; top: -28px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 3px 7px; border-radius: 4px; font-size: 12px; font-weight: bold; }
         .control-group { margin: 20px 0; }
         .control-group label { display: block; margin-bottom: 8px; font-weight: 600; }
@@ -43,56 +40,257 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Редактор Проекции</h1>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <span id="progressText">Шаг 1 из 4</span>
-        </div>
-
+        <div class="header"><h1>Редактор Проекции</h1></div>
         <div class="step active" id="step1">
-            <div class="step-header">
-                <div class="step-number">1</div>
-                <div><h2>Загрузка фонового изображения</h2></div>
-            </div>
-            <div class="upload-zone" onclick="document.getElementById('bgInput').click()">📷 Кликните или перетащите фоновое изображение</div>
-            <input type="file" id="bgInput" accept="image/*" class="hidden">
+            <div class="step-header"><div class="step-number">1</div><h2>Загрузка фонового изображения</h2></div>
+            <div class="upload-zone" onclick="document.getElementById('bgInput').click()">📷 Кликните, чтобы выбрать файл</div>
+            <input type="file" id="bgInput" class="hidden" accept="image/*" onchange="handleFile(event, 'bg')">
             <div id="bgImageContainer" class="image-container" style="display: none;"><img id="bgImage"></div>
             <button id="nextStep1" class="btn btn-primary" style="display: none;" onclick="nextStep(2)">Далее →</button>
         </div>
-
         <div class="step" id="step2">
-            <div class="step-header">
-                <div class="step-number">2</div>
-                <div><h2>Размещение точек контура (4 точки)</h2></div>
-            </div>
-            <div class="control-group">
-                <span>Точек размещено: <span id="pointCount">0</span>/4</span>
-                <button class="btn btn-danger btn-sm" onclick="clearContourPoints()">Очистить</button>
-            </div>
+            <div class="step-header"><div class="step-number">2</div><h2>Размещение точек контура (4 точки)</h2></div>
             <div id="contourImageContainer" class="image-container"></div>
-            <button id="nextStep2" class="btn btn-primary" style="display: none;" onclick="nextStep(3)">Далее →</button>
         </div>
-
         <div class="step" id="step3">
-            <div class="step-header">
-                <div class="step-number">3</div>
-                <div><h2>Загрузка изображения для проекции</h2></div>
-            </div>
-            <div class="upload-zone" onclick="document.getElementById('projInput').click()">🖼️ Кликните или перетащите изображение для проекции</div>
-            <input type="file" id="projInput" accept="image/*" class="hidden">
+            <div class="step-header"><div class="step-number">3</div><h2>Загрузка изображения для проекции</h2></div>
+            <div class="upload-zone" onclick="document.getElementById('projInput').click()">🖼️ Кликните, чтобы выбрать файл</div>
+            <input type="file" id="projInput" class="hidden" accept="image/*" onchange="handleFile(event, 'proj')">
             <div id="projPreview" style="margin: 20px 0;"></div>
             <button id="nextStep3" class="btn btn-primary" style="display: none;" onclick="nextStep(4)">Перейти к деформации →</button>
         </div>
-
         <div class="step" id="step4">
-             <div class="step-header">
-                <div class="step-number">4</div>
-                <div><h2>Финальная деформация и скачивание</h2><p style="margin:4px 0 0; font-size:14px; color:#606770;">Совместите цветные точки с углами контура на фото</p></div>
-            </div>
-             <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+            <div class="step-header"><div class="step-number">4</div><h2>Финальная деформация и скачивание</h2></div>
+            <div style="display: flex; gap: 30px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 250px;">
                     <div class="control-group">
                         <label for="goboDiameter">Диаметр Гобо для печати (мм):</label>
-                        <input type="number" id="goboDiameter" value="37.5
+                        <input type="number" id="goboDiameter" value="37.5" class="form-control">
+                    </div>
+                    <button class="btn btn-success" onclick="downloadResult()">💾 Скачать ГОТОВЫЙ ФАЙЛ</button>
+                    <div id="final-download-status"></div>
+                </div>
+                <div style="flex: 2; min-width: 400px;">
+                    <div id="deformationArea" style="position: relative; border: 1px solid #dddfe2; border-radius: 8px; min-height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/perspective-transform/dist/perspective-transform.min.js"></script>
+    <script>
+        let currentStep = 1;
+        let bgImage = null;
+        let projImage = null;
+        const contourPoints = [];
+
+        function handleFile(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    if (type === 'bg') {
+                        bgImage = img;
+                        document.getElementById('bgImage').src = img.src;
+                        document.getElementById('bgImageContainer').style.display = 'inline-block';
+                        document.getElementById('nextStep1').style.display = 'inline-block';
+                    } else if (type === 'proj') {
+                        projImage = img;
+                        document.getElementById('projPreview').innerHTML = `<img src="${img.src}" style="max-width: 300px; border: 1px solid #ddd;">`;
+                        document.getElementById('nextStep3').style.display = 'inline-block';
+                    }
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function nextStep(step) {
+            document.getElementById(`step${currentStep}`).style.display = 'none';
+            currentStep = step;
+            document.getElementById(`step${currentStep}`).style.display = 'block';
+
+            if (step === 2) initializeContourStep();
+            else if (step === 4) initializeDeformationStep();
+        }
+
+        function initializeContourStep() {
+            const container = document.getElementById('contourImageContainer');
+            if (!bgImage) return;
+            container.innerHTML = `<img src="${bgImage.src}">`;
+            
+            const addContourPoint = (e) => {
+                if (contourPoints.length >= 4) return;
+                const rect = container.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                contourPoints.push({ x, y });
+                renderContourPoints();
+                if (contourPoints.length === 4) {
+                    setTimeout(() => nextStep(3), 200);
+                }
+            };
+            container.addEventListener('click', addContourPoint);
+        }
+
+        function renderContourPoints() {
+            const container = document.getElementById('contourImageContainer');
+            container.querySelectorAll('.point').forEach(p => p.remove());
+            contourPoints.forEach((p, i) => {
+                const pointEl = document.createElement('div');
+                pointEl.className = `point point-${i + 1}`;
+                pointEl.style.left = `${p.x}px`;
+                pointEl.style.top = `${p.y}px`;
+                pointEl.setAttribute('data-number', i + 1);
+                pointEl.style.cursor = 'default';
+                container.appendChild(pointEl);
+            });
+        }
+        
+        function initializeDeformationStep() {
+            const area = document.getElementById('deformationArea');
+            area.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            area.appendChild(canvas);
+            canvas.width = bgImage.naturalWidth;
+            canvas.height = bgImage.naturalHeight;
+            canvas.style.maxWidth = '100%';
+
+            const movablePoints = [];
+
+            const redrawDeformation = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+                if (movablePoints.length < 4 || !projImage) return;
+
+                const w = projImage.naturalWidth, h = projImage.naturalHeight;
+                const srcCorners = [0, 0, w, 0, w, h, 0, h];
+                const scaleX = canvas.naturalWidth / canvas.offsetWidth;
+                const scaleY = canvas.naturalHeight / canvas.offsetHeight;
+                const dstCorners = movablePoints.map(p => [p.element.offsetLeft * scaleX, p.element.offsetTop * scaleY]).flat();
+                
+                try {
+                    const transform = perspective(srcCorners, dstCorners);
+                    ctx.save();
+                    transform.applyToContext(ctx);
+                    ctx.globalAlpha = 0.85;
+                    ctx.drawImage(projImage, 0, 0);
+                    ctx.restore();
+                } catch (e) { console.error("Ошибка деформации:", e); }
+            };
+
+            const makeDraggable = (element) => {
+                let isDragging = false;
+                element.addEventListener('mousedown', e => { isDragging = true; e.preventDefault(); });
+                document.addEventListener('mousemove', e => {
+                    if (!isDragging) return;
+                    const parentRect = element.parentElement.getBoundingClientRect();
+                    element.style.left = `${Math.max(0, Math.min(e.clientX - parentRect.left, parentRect.width))}px`;
+                    element.style.top = `${Math.max(0, Math.min(e.clientY - parentRect.top, parentRect.height))}px`;
+                    redrawDeformation();
+                });
+                document.addEventListener('mouseup', () => isDragging = false);
+            };
+
+            contourPoints.forEach((p, i) => {
+                const scaleX = canvas.offsetWidth / bgImage.naturalWidth;
+                const scaleY = canvas.offsetHeight / bgImage.naturalHeight;
+                const point = { x: p.x * scaleX, y: p.y * scaleY, number: i + 1 };
+                point.element = document.createElement('div');
+                point.element.className = `point point-${point.number}`;
+                point.element.setAttribute('data-number', point.number);
+                point.element.style.left = `${point.x}px`;
+                point.element.style.top = `${point.y}px`;
+                area.appendChild(point.element);
+                makeDraggable(point.element);
+                movablePoints.push(point);
+            });
+            redrawDeformation();
+        }
+
+        function downloadResult() {
+            const statusEl = document.getElementById('final-download-status');
+            if (!projImage) return alert('Изображение для проекции не загружено!');
+            
+            statusEl.textContent = 'Идет подготовка файла...';
+            setTimeout(() => {
+                try {
+                    const DPI = 2700;
+                    const MM_PER_INCH = 25.4;
+                    const goboDiameterMm = parseFloat(document.getElementById('goboDiameter').value);
+                    const pixelDiameter = Math.round((goboDiameterMm / MM_PER_INCH) * DPI);
+
+                    const finalCanvas = document.createElement('canvas');
+                    finalCanvas.width = pixelDiameter;
+                    finalCanvas.height = pixelDiameter;
+                    const ctx = finalCanvas.getContext('2d');
+
+                    ctx.fillStyle = 'black';
+                    ctx.beginPath();
+                    ctx.arc(pixelDiameter / 2, pixelDiameter / 2, pixelDiameter / 2, 0, 2 * Math.PI);
+                    ctx.fill();
+
+                    const deformArea = document.getElementById('deformationArea');
+                    const canvasForDeform = deformArea.querySelector('canvas');
+                    const movablePointElements = deformArea.querySelectorAll('.point');
+                    const w = projImage.naturalWidth, h = projImage.naturalHeight;
+                    const srcCorners = [0, 0, w, 0, w, h, 0, h];
+                    const scaleX = canvasForDeform.naturalWidth / canvasForDeform.offsetWidth;
+                    const scaleY = canvasForDeform.naturalHeight / canvasForDeform.offsetHeight;
+                    const dstCorners = Array.from(movablePointElements).map(el => [el.offsetLeft * scaleX, el.offsetTop * scaleY]).flat();
+                    
+                    const finalTransform = perspective(srcCorners, dstCorners);
+                    const projCanvas = document.createElement('canvas');
+                    projCanvas.width = bgImage.naturalWidth;
+                    projCanvas.height = bgImage.naturalHeight;
+                    const projCtx = projCanvas.getContext('2d');
+                    
+                    projCtx.save();
+                    finalTransform.applyToContext(projCtx);
+                    projCtx.drawImage(projImage, 0, 0);
+                    projCtx.restore();
+
+                    const BBOX = (() => {
+                        const xs = dstCorners.filter((_, i) => i % 2 === 0);
+                        const ys = dstCorners.filter((_, i) => i % 2 !== 0);
+                        const minX = Math.min(...xs), maxX = Math.max(...xs);
+                        const minY = Math.min(...ys), maxY = Math.max(...ys);
+                        return { minX, minY, width: maxX - minX, height: maxY - minY };
+                    })();
+
+                    const maxDim = Math.max(BBOX.width, BBOX.height);
+                    const finalImageSize = pixelDiameter * 0.9;
+                    const ratio = finalImageSize / maxDim;
+
+                    const pasteW = BBOX.width * ratio;
+                    const pasteH = BBOX.height * ratio;
+                    const pasteX = (pixelDiameter - pasteW) / 2;
+                    const pasteY = (pixelDiameter - pasteH) / 2;
+                    
+                    ctx.drawImage(projCanvas, BBOX.minX, BBOX.minY, BBOX.width, BBOX.height, pasteX, pasteY, pasteW, pasteH);
+                    
+                    const a = document.createElement('a');
+                    a.href = finalCanvas.toDataURL('image/png');
+                    a.download = `gobo_${goboDiameterMm}mm.png`;
+                    a.click();
+                    statusEl.textContent = 'Файл успешно создан!';
+                } catch (e) {
+                    statusEl.textContent = 'Ошибка при создании файла!';
+                    console.error("Ошибка генерации:", e);
+                    alert("Произошла ошибка. Проверьте консоль (F12).");
+                }
+            }, 100);
+        }
+
+        // Глобальные функции, доступные из HTML
+        window.handleFile = handleFile;
+        window.nextStep = nextStep;
+        window.clearContourPoints = () => { contourPoints.length = 0; renderContourPoints(); };
+        window.downloadResult = downloadResult;
+
+    </script>
+</body>
+</html>
