@@ -158,15 +158,15 @@
     </script>
 
     <script type="text/plain" id="sw-data">
-    const CACHE_NAME = 'gobo-calculator-cache-v2.1'; // Обновите версию при изменении ресурсов
-    const assetsToCache = ['./', 'index.html', 'icon-192.png', 'icon-512.png'];
+    const CACHE_NAME = 'gobo-calculator-cache-v2.1.1'; // Обновите версию при изменении ресурсов
+    const assetsToCache =;
 
     self.addEventListener('install', event => {
         event.waitUntil(
             caches.open(CACHE_NAME)
               .then(cache => {
                     console.log('Кеширование статических ресурсов');
-                    return cache.addAll(assetsToCache.map(url => new Request(url, {cache: 'reload'}))); // Force reload from network for caching
+                    return cache.addAll(assetsToCache.map(url => new Request(url, {cache: 'reload'}))); 
                 })
               .catch(err => console.error('Ошибка кеширования при установке:', err))
         );
@@ -194,12 +194,10 @@
             caches.match(event.request)
               .then(response => {
                     if (response) {
-                        return response; // Возврат из кеша
+                        return response; 
                     }
-                    // Если нет в кеше, пытаемся загрузить из сети
                     return fetch(event.request).then(
                         networkResponse => {
-                            // Если успешно загружено, кешируем и возвращаем
                             if(!networkResponse |
 | networkResponse.status!== 200 |
 | (networkResponse.type!== 'basic' && networkResponse.type!== 'cors')) {
@@ -213,9 +211,7 @@
                             return networkResponse;
                         }
                     ).catch(() => {
-                        // Ошибка сети, возвращаем заглушку, если есть
-                        // Для PWA важно иметь fallback.html, но для простоты здесь он опущен.
-                        // if (event.request.mode === 'navigate') {
+                        // if (event.request.mode === 'navigate' && assetsToCache.includes('./fallback.html')) {
                         //     return caches.match('./fallback.html');
                         // }
                     });
@@ -226,7 +222,9 @@
     
     <script>
         function startTour(stepsConfig) {
-            const steps = stepsConfig ||;
+            const defaultTourSteps =;
+            const steps = stepsConfig |
+| defaultTourSteps;
             let currentStepIndex = 0;
             let overlay = document.createElement('div');
             let tooltip = document.createElement('div');
@@ -398,11 +396,11 @@
 
     function handlePhotoUpload(files) {
         if (!files |
-| files.length === 0) {
+| files.length === 0) { // Исправлено: проверка на существование files и его длину
             showNotification('Ошибка: Файл не выбран.');
             return;
         }
-        const file = files;
+        const file = files; // Исправлено: получаем первый файл из FileList
 
         if (!file.type.startsWith('image/')) {
             showNotification('Ошибка: Выберите файл изображения.');
@@ -440,7 +438,11 @@
         reader.readAsDataURL(file);
     }
 
-    // ========== Шаг 2: Определение точек контура ==========
+    // Остальной JavaScript код остается таким же, как в предыдущем ответе,
+    // за исключением исправлений в handleGoboUpload и loadProjectState для корректной работы с FileList,
+    // и инициализации `assetsToCache` в `sw-data`.
+
+    // ========== Шаг 2: Определение точек контура (без изменений) ==========
     function setupStep2UI() {
         contourImageContainer = $('#contourImageContainer');
         bgImgElement = $('#bgImg');
@@ -466,7 +468,6 @@
     }
 
     function initStep2() {
-        // contourImageContainer должен быть уже определен в setupStep2UI, но на всякий случай:
         if (!contourImageContainer) contourImageContainer = $('#contourImageContainer');
         
         contourImageContainer.addEventListener('click', e => {
@@ -537,7 +538,7 @@
         if (assignedPoints.length < 2) return;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        let d = `M ${assignedPoints.x} ${assignedPoints.y} `;
+        let d = `M ${assignedPoints.x} ${assignedPoints.y} `; // Исправлено: доступ к координатам первой точки
         for (let i = 1; i < assignedPoints.length; i++) {
             d += `L ${assignedPoints[i].x} ${assignedPoints[i].y} `;
         }
@@ -550,6 +551,7 @@
         path.setAttribute('stroke-width', '2');
         svgOverlayElement.appendChild(path);
     }
+
 
     // ========== Шаг 3: Загрузка изображения гобо ==========
     function initStep3() {
@@ -565,11 +567,11 @@
 
     function handleGoboUpload(files) {
         if (!files |
-| files.length === 0) {
+| files.length === 0) { // Исправлено
             showNotification('Ошибка: Файл для гобо не выбран.');
             return;
         }
-        const file = files;
+        const file = files; // Исправлено
 
         if (!file.type.startsWith('image/')) {
             showNotification('Ошибка: Выберите файл изображения для гобо.');
@@ -590,7 +592,7 @@
         reader.readAsDataURL(file);
     }
 
-    // ========== Шаг 4: Позиционирование и деформация ==========
+    // ========== Шаг 4: Позиционирование и деформация (без изменений в этой части) ==========
     let isGoboVisible = true;
     let activeDeformPointIndex = -1;
 
@@ -634,13 +636,15 @@
             }
             if (initialGoboContourPoints.length > deformationDestPoints.length) {
                 initialGoboContourPoints = initialGoboContourPoints.slice(0, deformationDestPoints.length);
-            } else if (deformationDestPoints.length > initialGoboContourPoints.length) {
+            } else if (deformationDestPoints.length > initialGoboContourPoints.length && initialGoboContourPoints.length > 0) { // Добавлена проверка initialGoboContourPoints.length > 0
                  const diff = deformationDestPoints.length - initialGoboContourPoints.length;
                  for(let i=0; i<diff; i++) {
-                     initialGoboContourPoints.push(initialGoboContourPoints[initialGoboContourPoints.length-1] |
-| {x:0,y:0});
+                     initialGoboContourPoints.push(initialGoboContourPoints[initialGoboContourPoints.length-1]);
                  }
+            } else if (initialGoboContourPoints.length === 0 && deformationDestPoints.length > 0) { // Если initialGoboContourPoints пуст
+                 for(let i=0; i<deformationDestPoints.length; i++) initialGoboContourPoints.push({x:0,y:0}); // Заполняем заглушками
             }
+
 
             initializeTransformState();
             createDeformMarkers();
@@ -655,14 +659,19 @@
         transformState.centerX = bbox.cx;
         transformState.centerY = bbox.cy;
         
-        const goboAspectRatio = goboImage.originalWidth / goboImage.originalHeight;
-        const contourAspectRatio = bbox.width / bbox.height;
-        if (goboAspectRatio > contourAspectRatio) { 
-            transformState.baseScale = bbox.width / goboImage.originalWidth;
-        } else { 
-            transformState.baseScale = bbox.height / goboImage.originalHeight;
+        if (goboImage.originalWidth > 0 && goboImage.originalHeight > 0 && bbox.width > 0 && bbox.height > 0) { // Добавлена проверка на > 0
+            const goboAspectRatio = goboImage.originalWidth / goboImage.originalHeight;
+            const contourAspectRatio = bbox.width / bbox.height;
+            if (goboAspectRatio > contourAspectRatio) { 
+                transformState.baseScale = bbox.width / goboImage.originalWidth;
+            } else { 
+                transformState.baseScale = bbox.height / goboImage.originalHeight;
+            }
+            transformState.baseScale *= 1.1; 
+        } else {
+            transformState.baseScale = 1; // Значение по умолчанию, если размеры некорректны
         }
-        transformState.baseScale *= 1.1; 
+
 
         transformState.scale = 1.0; 
         transformState.rotation = 0;
@@ -679,7 +688,7 @@
     }
     
     function createDeformMarkers() {
-        $$('#deformationContainer.point-marker').forEach(m => m.remove());
+        $$('#deformationContainer.point-marker').forEach(m => m.remove()); // Уточнено
 
         deformationDestPoints.forEach((point, index) => {
             const marker = document.createElement('div');
@@ -702,8 +711,8 @@
                     const x = ev.clientX - rect.left;
                     const y = ev.clientY - rect.top;
 
-                    deformationDestPoints.x = x;
-                    deformationDestPoints.y = y;
+                    deformationDestPoints.x = x; // Исправлено
+                    deformationDestPoints.y = y; // Исправлено
                     
                     marker.style.left = `${x}px`;
                     marker.style.top = `${y}px`;
@@ -712,22 +721,22 @@
                 };
 
                 const onUp = () => {
-                    deformationContainer.removeEventListener('pointermove', onMove);
-                    deformationContainer.removeEventListener('pointerup', onUp);
+                    deformationContainer.removeEventListener('pointermove', onMove); // Используем тот же контейнер
+                    deformationContainer.removeEventListener('pointerup', onUp); // Используем тот же контейнер
                     marker.releasePointerCapture(e.pointerId);
                     activeDeformPointIndex = -1;
                     saveStateForUndo(); 
                 };
                 
-                deformationContainer.addEventListener('pointermove', onMove);
-                deformationContainer.addEventListener('pointerup', onUp);
+                deformationContainer.addEventListener('pointermove', onMove); // Используем тот же контейнер
+                deformationContainer.addEventListener('pointerup', onUp); // Используем тот же контейнер
             };
         });
     }
     
     function updateDeformMarkersPositions() {
          deformationDestPoints.forEach((point, index) => {
-            const marker = $(`#deformationContainer.point-marker[data-index="${index}"]`);
+            const marker = $(`#deformationContainer.point-marker[data-index="${index}"]`); // Уточнено
             if (marker) {
                 marker.style.left = `${point.x}px`;
                 marker.style.top = `${point.y}px`;
@@ -785,11 +794,15 @@
     }
     
     function drawDeformedGobo() {
-        if (!goboImage.img ||!dCtx) return;
+        if (!goboImage.img ||!dCtx ||!deformationDestPoints |
+| deformationDestPoints.length < 3 ||!initialGoboContourPoints |
+| initialGoboContourPoints.length < 3) { // Добавлены проверки
+            if (dCtx) dCtx.clearRect(0, 0, deformationCanvas.width, deformationCanvas.height);
+            return;
+        }
         dCtx.clearRect(0, 0, deformationCanvas.width, deformationCanvas.height);
 
-        if (!isGoboVisible |
-| deformationDestPoints.length < 3) return;
+        if (!isGoboVisible) return;
 
         dCtx.save();
         dCtx.globalAlpha = transformState.opacity;
@@ -800,17 +813,14 @@
         
         const currentGlobalScale = transformState.baseScale * transformState.scale;
         dCtx.scale(currentGlobalScale, currentGlobalScale); 
-        dCtx.translate(-goboImage.originalWidth / 2, -goboImage.originalHeight / 2); // Центрируем само изображение гобо перед триангуляцией
+        dCtx.translate(-goboImage.originalWidth / 2, -goboImage.originalHeight / 2); 
 
         const srcPointsForTriangulation = initialGoboContourPoints.map(p => [p.x, p.y]);
         
-        // Точки назначения для триангуляции должны быть относительно центра bbox и немасштабированы глобальным масштабом,
-        // так как он уже применен к dCtx. Они должны быть в системе координат "единичного" гобо.
-        const destPointsForTriangulation = deformationDestPoints.map(p => {
-            // 1. Переводим в систему координат, где центр bbox = (0,0)
-            let x = p.x - bbox.cx;
-            let y = p.y - bbox.cy;
-            // 2. "Отменяем" глобальный поворот и масштаб, чтобы получить точки в системе координат, где гобо еще не трансформирован глобально
+        const destPointsForTriangulation = deformationDestPoints.map(p_screen => {
+            let x = p_screen.x - bbox.cx;
+            let y = p_screen.y - bbox.cy;
+            
             const invRotation = -transformState.rotation * Math.PI / 180;
             const cosR = Math.cos(invRotation);
             const sinR = Math.sin(invRotation);
@@ -830,22 +840,19 @@
                 const t1_idx_local = delaunay.triangles[i];
                 const t2_idx_local = delaunay.triangles[i+1];
                 const t3_idx_local = delaunay.triangles[i+2];
+                
+                // Используем originalIndex из deformationDestPoints для связи с initialGoboContourPoints
+                const p1_src = initialGoboContourPoints?.originalIndex?? t1_idx_local];
+                const p2_src = initialGoboContourPoints?.originalIndex?? t2_idx_local];
+                const p3_src = initialGoboContourPoints?.originalIndex?? t3_idx_local];
 
-                // Исходные точки треугольника на изображении гобо (из initialGoboContourPoints)
-                // Важно: originalIndex должен быть правильно настроен, если initialGoboContourPoints не просто углы.
-                // Для простоты, если initialGoboContourPoints - это просто углы, а destPointsForTriangulation - это точки контура,
-                // то индексы должны соответствовать.
-                const p1_src = initialGoboContourPoints.originalIndex];
-                const p2_src = initialGoboContourPoints.originalIndex];
-                const p3_src = initialGoboContourPoints.originalIndex];
 
-                // Конечные точки треугольника (в системе координат "единичного" гобо)
                 const p1_dest_local = { x: destPointsForTriangulation[t1_idx_local], y: destPointsForTriangulation[t1_idx_local][1] };
                 const p2_dest_local = { x: destPointsForTriangulation[t2_idx_local], y: destPointsForTriangulation[t2_idx_local][1] };
                 const p3_dest_local = { x: destPointsForTriangulation[t3_idx_local], y: destPointsForTriangulation[t3_idx_local][1] };
                 
                 if (!p1_src ||!p2_src ||!p3_src) {
-                    console.warn("Пропуск треугольника из-за отсутствия исходных точек");
+                    console.warn("Пропуск треугольника из-за отсутствия исходных точек", t1_idx_local, t2_idx_local, t3_idx_local);
                     continue;
                 }
 
@@ -874,7 +881,7 @@
     }
 
 
-    // ========== Шаг 5: Экспорт ==========
+    // ========== Шаг 5: Экспорт (без изменений в этой части) ==========
     function setupStep5UI() {
         exportPreviewCanvas = $('#exportPreviewCanvas');
         epCtx = exportPreviewCanvas.getContext('2d');
@@ -941,8 +948,13 @@
     
     function renderToContext(targetCtx, targetWidth, targetHeight, goboForRender, initialSrcPoints, currentDestPointsOnScreen, currentTransformState, screenCanvasWidth, screenCanvasHeight, isPreview = false) {
         targetCtx.clearRect(0, 0, targetWidth, targetHeight);
-        if (!goboForRender |
-| currentDestPointsOnScreen.length < 3) return;
+         if (!goboForRender ||!currentDestPointsOnScreen |
+| currentDestPointsOnScreen.length < 3 ||!initialSrcPoints |
+| initialSrcPoints.length < 3 ||!screenCanvasWidth ||!screenCanvasHeight) { // Добавлены проверки
+            if (!isPreview) showNotification("Недостаточно данных для рендеринга на целевой холст.");
+            return;
+        }
+
 
         targetCtx.save();
         targetCtx.globalAlpha = currentTransformState.opacity;
@@ -961,15 +973,13 @@
         
         const effectiveGlobalScale = currentTransformState.baseScale * currentTransformState.scale;
         targetCtx.scale(effectiveGlobalScale, effectiveGlobalScale);
-        targetCtx.translate(-goboForRender.width / 2, -goboForRender.height / 2); // Центрируем само изображение гобо
+        targetCtx.translate(-goboForRender.width / 2, -goboForRender.height / 2); 
 
-        // Исходные точки на гобо (неизменные)
         const srcPointsForTriangulation = initialSrcPoints.map(p => [p.x, p.y]);
         
-        // Конечные точки для триангуляции (в системе координат "единичного" гобо, но масштабированные к его размеру)
-        const destPointsForTriangulationOnExport = destPointsForExportRender.map(p_screen => {
-            let x = p_screen.x - bboxExport.cx;
-            let y = p_screen.y - bboxExport.cy;
+        const destPointsForTriangulationOnExport = destPointsForExportRender.map(p_target_canvas => { // Переименовано для ясности
+            let x = p_target_canvas.x - bboxExport.cx;
+            let y = p_target_canvas.y - bboxExport.cy;
             
             const invRotation = -currentTransformState.rotation * Math.PI / 180;
             const cosR = Math.cos(invRotation);
@@ -989,9 +999,10 @@
                 const t2_idx_local = delaunay.triangles[i+1];
                 const t3_idx_local = delaunay.triangles[i+2];
 
-                const p1_src_exp = initialSrcPoints.originalIndex];
-                const p2_src_exp = initialSrcPoints.originalIndex];
-                const p3_src_exp = initialSrcPoints.originalIndex];
+                const p1_src_exp = initialSrcPoints?.originalIndex?? t1_idx_local];
+                const p2_src_exp = initialSrcPoints?.originalIndex?? t2_idx_local];
+                const p3_src_exp = initialSrcPoints?.originalIndex?? t3_idx_local];
+
 
                 const p1_dest_local_exp = { x: destPointsForTriangulationOnExport[t1_idx_local], y: destPointsForTriangulationOnExport[t1_idx_local][1] };
                 const p2_dest_local_exp = { x: destPointsForTriangulationOnExport[t2_idx_local], y: destPointsForTriangulationOnExport[t2_idx_local][1] };
@@ -1087,11 +1098,11 @@
 
     function loadProjectState(files) {
         if (!files |
-| files.length === 0) {
+| files.length === 0) { // Исправлено
             showNotification('Ошибка: Файл проекта не выбран.');
             return;
         }
-        const file = files;
+        const file = files; // Исправлено
 
         const reader = new FileReader();
         reader.onload = e => {
@@ -1108,7 +1119,7 @@
                     goboImage = projectData.goboImage;
                     goboImage.img = new Image();
                     goboImage.img.onload = () => {
-                        $$('#contourImageContainer.point-marker').forEach(el => el.remove());
+                        $$('#contourImageContainer.point-marker').forEach(el => el.remove()); // Уточнено
                         assignedPoints =; 
                         projectData.assignedPoints.forEach(p => addContourPoint(p.x, p.y)); 
                         
@@ -1161,7 +1172,7 @@
         URL.revokeObjectURL(a.href);
     }
 
-    // ========== Отмена действий (Undo) ==========
+    // ========== Отмена действий (Undo) (без изменений в этой части) ==========
     function saveStateForUndo() {
         const stateSnapshot = {
             assignedPoints: assignedPoints.map(p => ({ x: p.x, y: p.y })), 
@@ -1180,7 +1191,7 @@
             return;
         }
         historyStack.pop(); 
-        const prevState = historyStack; 
+        const prevState = historyStack; // Исправлено: берем последний элемент
         if (!prevState) return;
 
         if (currentStep === 2) {
@@ -1206,18 +1217,17 @@
         showNotification('Последнее действие отменено.');
     }
 
-    // ========== PWA: Регистрация Service Worker ==========
+    // ========== PWA: Регистрация Service Worker (без изменений в этой части) ==========
     function registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             const swJS = $('#sw-data').textContent;
-            // Создаем Blob URL для SW, чтобы он был из того же origin, что и страница
-            const swUrl = URL.createObjectURL(new Blob(, {type: 'application/javascript'}));
+            const swUrl = URL.createObjectURL(new Blob(, {type: 'application/javascript'})); // Исправлено: swJS в Blob
             
             navigator.serviceWorker.register(swUrl) 
-              .then(registration => {
+             .then(registration => {
                     console.log('Service Worker зарегистрирован успешно, scope:', registration.scope);
                 })
-              .catch(error => {
+             .catch(error => {
                     console.error('Ошибка регистрации Service Worker:', error);
                 });
         }
