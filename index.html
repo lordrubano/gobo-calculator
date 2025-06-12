@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Редактор Проекции (Профессиональная версия)</title>
+    <title>Редактор Проекции (Исправленная версия)</title>
     <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; color: #1c1e21; }
@@ -33,6 +33,7 @@
         .btn-success:hover { background: #36a420; }
         .btn-danger { background: #fa3e3e; color: white; }
         .btn-danger:hover { background: #e03838; }
+        .hidden { display: none; }
         .point-colors { --color-1:#e6194B; --color-2:#3cb44b; --color-3:#ffe119; --color-4:#4363d8; --color-5:#f58231; --color-6:#911eb4; --color-7:#46f0f0; --color-8:#f032e6; --color-9:#bcf60c; --color-10:#fabebe; --color-11:#008080; --color-12:#e6beff; }
         .point-1 { background-color: var(--color-1); } .point-2 { background-color: var(--color-2); } .point-3 { background-color: var(--color-3); } .point-4 { background-color: var(--color-4); } .point-5 { background-color: var(--color-5); } .point-6 { background-color: var(--color-6); } .point-7 { background-color: var(--color-7); } .point-8 { background-color: var(--color-8); } .point-9 { background-color: var(--color-9); } .point-10 { background-color: var(--color-10); } .point-11 { background-color: var(--color-11); } .point-12 { background-color: var(--color-12); }
         .split-layout { display: flex; gap: 30px; flex-wrap: wrap; }
@@ -61,6 +62,7 @@
         <div class="step" id="step3">
             <div class="step-header"><div class="step-number">3</div><h2>Загрузка изображения для проекции</h2></div>
             <div class="upload-zone" onclick="document.getElementById('projInput').click()">🖼️ Кликните, чтобы выбрать файл</div>
+            <input type="file" id="projInput" class="hidden" accept="image/*" onchange="handleFile(event, 'proj')">
         </div>
 
         <div class="step" id="step4">
@@ -69,7 +71,7 @@
                 <div class="controls">
                     <div class="control-group">
                         <label>Размер сетки на экране (px): <span id="gridSizeValue">30</span></label>
-                        <input type="range" id="gridSize" min="10" max="100" value="30" class="slider">
+                        <input type="range" id="gridSize" min="10" max="100" value="30" class="slider form-control">
                     </div>
                     <div class="control-group">
                         <label>Реальный размер 1 клетки (см):</label>
@@ -106,6 +108,7 @@
                 <input type="number" id="goboDiameter" value="37.5" class="form-control">
             </div>
             <button class="btn btn-success" onclick="downloadResult()">💾 Скачать ГОТОВЫЙ ФАЙЛ</button>
+             <div id="final-download-status"></div>
         </div>
     </div>
 
@@ -116,17 +119,29 @@
         const MAX_POINTS = 12;
 
         function handleFile(event, type) {
-            const file = event.target.files[0]; if (!file) return;
+            const inputElement = event.target;
+            const file = inputElement.files[0];
+            if (!file) return;
+
             const reader = new FileReader();
             reader.onload = e => {
                 const img = new Image();
                 img.src = e.target.result;
                 img.onload = () => {
-                    if (type === 'bg') { bgImage = img; nextStep(2); } 
-                    else if (type === 'proj') { projImage = img; nextStep(4); }
+                    if (type === 'bg') {
+                        bgImage = img;
+                        nextStep(2);
+                    } else if (type === 'proj') {
+                        projImage = img;
+                        nextStep(4);
+                    }
                 };
             };
             reader.readAsDataURL(file);
+            
+            // *** ИСПРАВЛЕНИЕ: Очищаем значение инпута ***
+            // Это позволяет выбирать один и тот же файл повторно.
+            inputElement.value = '';
         }
 
         function nextStep(step) {
@@ -155,167 +170,4 @@
         }
         
         function renderPoints(points, container) {
-            container.querySelectorAll('.point').forEach(p => p.remove());
-            const img = container.querySelector('img');
-            if (!img) return;
-            const scaleX = img.offsetWidth / img.naturalWidth, scaleY = img.offsetHeight / img.naturalHeight;
-            points.forEach((p, i) => {
-                const pointEl = document.createElement('div');
-                pointEl.className = `point point-${i + 1}`;
-                pointEl.style.left = `${p[0] * scaleX}px`; pointEl.style.top = `${p[1] * scaleY}px`;
-                pointEl.innerHTML = i + 1;
-                container.appendChild(pointEl);
-            });
-        }
-
-        function clearPoints(type) {
-            const config = type === 'contour' 
-                ? { points: contourPoints, containerId: 'contourImageContainer', countId: 'contourPointCount' }
-                : { points: projPoints, containerId: 'projImageContainer', countId: 'projPointCount' };
-            config.points.length = 0;
-            renderPoints(config.points, document.getElementById(config.containerId));
-            document.getElementById(config.countId).textContent = 0;
-        }
-
-        // --- КАЛИБРОВКА (ШАГ 4) ---
-        function initializeCalibrationStep() {
-            const container = document.getElementById('calibrationContainer');
-            const img = document.createElement('img');
-            img.src = projImage.src;
-            const gridCanvas = document.createElement('canvas');
-            gridCanvas.className = 'grid-overlay';
-            container.innerHTML = '';
-            container.append(img, gridCanvas);
-
-            const gridSizeSlider = document.getElementById('gridSize');
-            const showGridCheck = document.getElementById('showGrid');
-            const cellSizeInput = document.getElementById('cellSize');
-
-            function updateCalibration() {
-                gridSize = parseInt(gridSizeSlider.value);
-                cellSize = parseFloat(cellSizeInput.value) || 10;
-                document.getElementById('gridSizeValue').textContent = gridSize;
-                gridCanvas.style.display = showGridCheck.checked ? 'block' : 'none';
-                drawGrid();
-                updateInfo();
-            }
-
-            function drawGrid() {
-                gridCanvas.width = img.offsetWidth;
-                gridCanvas.height = img.offsetHeight;
-                const ctx = gridCanvas.getContext('2d');
-                ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
-                ctx.strokeStyle = '#007bff';
-                ctx.lineWidth = 1;
-                for (let x = 0; x < gridCanvas.width; x += gridSize) {
-                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gridCanvas.height); ctx.stroke();
-                }
-                for (let y = 0; y < gridCanvas.height; y += gridSize) {
-                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gridCanvas.width, y); ctx.stroke();
-                }
-            }
-            
-            function updateInfo() {
-                const widthInCells = Math.round(img.offsetWidth / gridSize);
-                const heightInCells = Math.round(img.offsetHeight / gridSize);
-                const realWidth = (widthInCells * cellSize).toFixed(1);
-                const realHeight = (heightInCells * cellSize).toFixed(1);
-                document.getElementById('originalImageInfo').textContent = `${projImage.naturalWidth} x ${projImage.naturalHeight} px`;
-                document.getElementById('projectionSize').textContent = `${realWidth} x ${realHeight} cm`;
-            }
-
-            img.onload = updateCalibration;
-            if (img.complete) updateCalibration();
-            gridSizeSlider.oninput = updateCalibration;
-            showGridCheck.onchange = updateCalibration;
-            cellSizeInput.oninput = updateCalibration;
-        }
-
-        // --- ИНТЕРАКТИВНАЯ ДЕФОРМАЦИЯ (ШАГ 6) ---
-        function initializeDeformationStep() {
-            if (contourPoints.length !== projPoints.length || contourPoints.length < 3) {
-                alert("Ошибка: Количество точек на контуре и на изображении должно совпадать (и быть не менее 3).");
-                return nextStep(2);
-            }
-
-            const container = document.getElementById('finalCanvasContainer');
-            container.innerHTML = ''; 
-            const canvas = document.createElement('canvas');
-            container.appendChild(canvas);
-            const ctx = canvas.getContext('2d');
-            canvas.width = bgImage.naturalWidth;
-            canvas.height = bgImage.naturalHeight;
-
-            let draggablePoints = JSON.parse(JSON.stringify(contourPoints));
-
-            function redraw() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-                ctx.globalAlpha = 0.8;
-                warp(ctx, projImage, projPoints, draggablePoints);
-                ctx.globalAlpha = 1.0;
-            }
-            
-            const scaleX = canvas.offsetWidth / bgImage.naturalWidth, scaleY = canvas.offsetHeight / bgImage.naturalHeight;
-            draggablePoints.forEach((p, i) => {
-                const pointEl = document.createElement('div');
-                pointEl.className = `point draggable-point point-${i + 1}`;
-                pointEl.style.left = `${p[0] * scaleX}px`;
-                pointEl.style.top = `${p[1] * scaleY}px`;
-                pointEl.innerHTML = i + 1;
-                container.appendChild(pointEl);
-                makeDraggable(pointEl, p, scaleX, scaleY, redraw);
-            });
-            
-            redraw();
-        }
-
-        function makeDraggable(element, point, scaleX, scaleY, onDrag) {
-            let isDragging = false;
-            element.onmousedown = e => { isDragging = true; e.preventDefault(); };
-            document.onmousemove = e => {
-                if (!isDragging) return;
-                const parentRect = element.parentElement.getBoundingClientRect();
-                element.style.left = `${Math.max(0, Math.min(e.clientX - parentRect.left, parentRect.width))}px`;
-                element.style.top = `${Math.max(0, Math.min(e.clientY - parentRect.top, parentRect.height))}px`;
-                point[0] = element.offsetLeft / scaleX;
-                point[1] = element.offsetTop / scaleY;
-                onDrag();
-            };
-            document.onmouseup = () => isDragging = false;
-        }
-        
-        function warp(ctx, srcImage, srcPoints, dstPoints) {
-            try {
-                const delaunay = Delaunator.from(srcPoints);
-                for (let i = 0; i < delaunay.triangles.length; i += 3) {
-                    const t = [delaunay.triangles[i], delaunay.triangles[i+1], delaunay.triangles[i+2]];
-                    textureMap(ctx, srcImage, srcPoints[t[0]], srcPoints[t[1]], srcPoints[t[2]], dstPoints[t[0]], dstPoints[t[1]], dstPoints[t[2]]);
-                }
-            } catch (e) { console.error("Ошибка деформации:", e); }
-        }
-        
-        function textureMap(ctx, t, p0, p1, p2, p3, p4, p5) {
-             const den = p0[0]*(p2[1]-p1[1]) - p1[0]*p2[1] + p2[0]*p1[1] + (p1[0]-p2[0])*p0[1];
-             if (Math.abs(den) < 1e-8) return;
-             ctx.save(); ctx.beginPath(); ctx.moveTo(p3[0],p3[1]); ctx.lineTo(p4[0],p4[1]); ctx.lineTo(p5[0],p5[1]);
-             ctx.closePath(); ctx.clip();
-             const m11 = (p3[0]*(p2[1]-p1[1]) - p4[0]*p2[1] + p5[0]*p1[1] + (p4[0]-p5[0])*p0[1]) / den;
-             const m12 = (p3[1]*(p2[1]-p1[1]) - p4[1]*p2[1] + p5[1]*p1[1] + (p4[1]-p5[1])*p0[1]) / den;
-             const m21 = (p4[0]*p2[0] - p5[0]*p1[0] - p3[0]*(p2[0]-p1[0]) + (p5[0]-p4[0])*p0[0]) / den;
-             const m22 = (p4[1]*p2[0] - p5[1]*p1[0] - p3[1]*(p2[0]-p1[0]) + (p5[1]-p4[1])*p0[0]) / den;
-             const m31 = (p3[0]*(p2[1]*p1[0]-p1[1]*p2[0]) + p0[0]*(p4[0]*p2[1]-p5[0]*p1[1]) + p0[1]*(p5[0]*p1[0]-p4[0]*p2[0])) / den;
-             const m32 = (p3[1]*(p2[1]*p1[0]-p1[1]*p2[0]) + p0[1]*(p4[1]*p2[0]-p5[1]*p1[0]) + p0[0]*(p5[1]*p1[1]-p4[1]*p2[1])) / den;
-             ctx.transform(m11,m12,m21,m22,m31,m32);
-             ctx.drawImage(t,0,0); ctx.restore();
-        }
-
-        function downloadResult() { alert("Функция скачивания в разработке."); }
-
-        window.handleFile = handleFile;
-        window.nextStep = nextStep;
-        window.clearPoints = clearPoints;
-        window.downloadResult = downloadResult;
-    </script>
-</body>
-</html>
+            container.querySelectorAll('.point').forEach(
