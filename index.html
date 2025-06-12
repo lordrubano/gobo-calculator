@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Редактор Проекции (Интерактивная версия)</title>
+    <title>Редактор Проекции (Профессиональная версия)</title>
     <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; color: #1c1e21; }
@@ -17,13 +17,15 @@
         .upload-zone { border: 2px dashed #ccd0d5; border-radius: 8px; padding: 50px 20px; text-align: center; cursor: pointer; transition: all 0.2s ease; margin: 20px 0; background: #f7f8fa; }
         .upload-zone:hover { border-color: #333; background: #f0f2f5; }
         .image-container { position: relative; display: inline-block; margin-top: 20px; border: 1px solid #dddfe2; border-radius: 8px; overflow: hidden; line-height: 0; cursor: crosshair; }
-        .image-container img, #finalCanvasContainer canvas { max-width: 100%; display: block; }
-        .point { position: absolute; width: 14px; height: 14px; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,0.7); z-index: 10; display: flex; align-items: center; justify-content: center; color: white; font-size: 9px; font-weight: bold; }
+        .image-container img, canvas { max-width: 100%; display: block; }
+        .point { position: absolute; width: 12px; height: 12px; border: 3px solid white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 8px rgba(0,0,0,0.7); z-index: 10; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; font-size: 8px; font-weight: bold; }
         .point.static-point { border: 2px solid white; background-color: rgba(0, 0, 0, 0.5); cursor: default; }
         .point.draggable-point { border: 2px solid white; cursor: move; }
-        .control-group { margin: 20px 0; }
+        .control-group { margin: 15px 0; }
         .control-group label { display: block; margin-bottom: 8px; font-weight: 600; }
-        .form-control { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 6px; border: 1px solid #ccd0d5; font-size: 16px; }
+        .form-control, .slider { width: 100%; box-sizing: border-box; }
+        .info-panel { background: #e9ecef; border: 1px solid #dee2e6; border-radius: 6px; padding: 15px; margin-top: 20px; font-size: 14px; }
+        .info-panel p { margin: 5px 0; }
         .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 15px; transition: all 0.2s ease; margin: 5px; }
         .btn-primary { background: #555; color: white; }
         .btn-primary:hover { background: #333; }
@@ -31,10 +33,11 @@
         .btn-success:hover { background: #36a420; }
         .btn-danger { background: #fa3e3e; color: white; }
         .btn-danger:hover { background: #e03838; }
-        .hidden { display: none; }
-        .point-colors { --color-1: #e6194B; --color-2: #3cb44b; --color-3: #ffe119; --color-4: #4363d8; --color-5: #f58231; --color-6: #911eb4; --color-7: #46f0f0; --color-8: #f032e6; --color-9: #bcf60c; --color-10: #fabebe; --color-11: #008080; --color-12: #e6beff; }
+        .point-colors { --color-1:#e6194B; --color-2:#3cb44b; --color-3:#ffe119; --color-4:#4363d8; --color-5:#f58231; --color-6:#911eb4; --color-7:#46f0f0; --color-8:#f032e6; --color-9:#bcf60c; --color-10:#fabebe; --color-11:#008080; --color-12:#e6beff; }
         .point-1 { background-color: var(--color-1); } .point-2 { background-color: var(--color-2); } .point-3 { background-color: var(--color-3); } .point-4 { background-color: var(--color-4); } .point-5 { background-color: var(--color-5); } .point-6 { background-color: var(--color-6); } .point-7 { background-color: var(--color-7); } .point-8 { background-color: var(--color-8); } .point-9 { background-color: var(--color-9); } .point-10 { background-color: var(--color-10); } .point-11 { background-color: var(--color-11); } .point-12 { background-color: var(--color-12); }
-        #final-download-status { margin-top: 15px; font-weight: bold; }
+        .split-layout { display: flex; gap: 30px; flex-wrap: wrap; }
+        .split-layout > div { flex: 1; min-width: 300px; }
+        .grid-overlay { position: absolute; top: 0; left: 0; pointer-events: none; opacity: 0.5; }
     </style>
 </head>
 <body class="point-colors">
@@ -42,7 +45,7 @@
         <div class="header"><h1>Редактор Проекции</h1></div>
         
         <div class="step active" id="step1">
-            <div class="step-header"><div class="step-number">1</div><h2>Загрузка фонового изображения (с контуром)</h2></div>
+            <div class="step-header"><div class="step-number">1</div><h2>Загрузка фонового изображения</h2></div>
             <div class="upload-zone" onclick="document.getElementById('bgInput').click()">📷 Кликните, чтобы выбрать файл</div>
             <input type="file" id="bgInput" class="hidden" accept="image/*" onchange="handleFile(event, 'bg')">
         </div>
@@ -58,19 +61,44 @@
         <div class="step" id="step3">
             <div class="step-header"><div class="step-number">3</div><h2>Загрузка изображения для проекции</h2></div>
             <div class="upload-zone" onclick="document.getElementById('projInput').click()">🖼️ Кликните, чтобы выбрать файл</div>
-            <input type="file" id="projInput" class="hidden" accept="image/*" onchange="handleFile(event, 'proj')">
         </div>
 
         <div class="step" id="step4">
-            <div class="step-header"><div class="step-number">4</div><h2>Расстановка точек на изображении проекции</h2></div>
-            <div id="projImageContainer" class="image-container"></div>
-            <p>Точек: <span id="projPointCount">0</span></p>
-            <button class="btn btn-danger" onclick="clearPoints('proj')">Очистить</button>
-            <button class="btn btn-primary" onclick="nextStep(5)">Перейти к деформации →</button>
+            <div class="step-header"><div class="step-number">4</div><h2>Калибровка изображения по сетке</h2></div>
+            <div class="split-layout">
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Размер сетки на экране (px): <span id="gridSizeValue">30</span></label>
+                        <input type="range" id="gridSize" min="10" max="100" value="30" class="slider">
+                    </div>
+                    <div class="control-group">
+                        <label>Реальный размер 1 клетки (см):</label>
+                        <input type="number" id="cellSize" value="10" class="form-control">
+                    </div>
+                    <div class="control-group">
+                        <label><input type="checkbox" id="showGrid" checked> Показать сетку</label>
+                    </div>
+                    <div class="info-panel">
+                        <h4>Информация</h4>
+                        <p><strong>Исходный размер:</strong> <span id="originalImageInfo">-</span></p>
+                        <p><strong>Размер проекции:</strong> <span id="projectionSize">-</span></p>
+                    </div>
+                </div>
+                <div id="calibrationContainer" class="image-container"></div>
+            </div>
+            <button class="btn btn-primary" onclick="nextStep(5)">Далее к расстановке точек →</button>
         </div>
 
         <div class="step" id="step5">
-            <div class="step-header"><div class="step-number">5</div><h2>Интерактивная деформация и скачивание</h2></div>
+            <div class="step-header"><div class="step-number">5</div><h2>Расстановка точек на изображении проекции</h2></div>
+            <div id="projImageContainer" class="image-container"></div>
+            <p>Точек: <span id="projPointCount">0</span>. Количество должно совпадать с точками на контуре.</p>
+            <button class="btn btn-danger" onclick="clearPoints('proj')">Очистить</button>
+            <button class="btn btn-primary" onclick="nextStep(6)">Перейти к деформации →</button>
+        </div>
+
+        <div class="step" id="step6">
+            <div class="step-header"><div class="step-number">6</div><h2>Интерактивная деформация и скачивание</h2></div>
             <div id="finalCanvasContainer" class="image-container"></div>
             <br>
             <div class="control-group">
@@ -78,19 +106,17 @@
                 <input type="number" id="goboDiameter" value="37.5" class="form-control">
             </div>
             <button class="btn btn-success" onclick="downloadResult()">💾 Скачать ГОТОВЫЙ ФАЙЛ</button>
-            <div id="final-download-status"></div>
         </div>
     </div>
 
     <script>
         let bgImage, projImage;
         let contourPoints = [], projPoints = [];
+        let gridSize = 30, cellSize = 10;
         const MAX_POINTS = 12;
 
-        // --- ОБРАБОТКА ФАЙЛОВ И НАВИГАЦИЯ ---
         function handleFile(event, type) {
-            const file = event.target.files[0];
-            if (!file) return;
+            const file = event.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = e => {
                 const img = new Image();
@@ -108,24 +134,24 @@
             document.getElementById(`step${step}`).style.display = 'block';
 
             if (step === 2) setupPointPlacement('contour', bgImage, contourPoints, document.getElementById('contourImageContainer'), document.getElementById('contourPointCount'));
-            else if (step === 4) setupPointPlacement('proj', projImage, projPoints, document.getElementById('projImageContainer'), document.getElementById('projPointCount'));
-            else if (step === 5) initializeDeformationStep();
+            else if (step === 4) initializeCalibrationStep();
+            else if (step === 5) setupPointPlacement('proj', projImage, projPoints, document.getElementById('projImageContainer'), document.getElementById('projPointCount'));
+            else if (step === 6) initializeDeformationStep();
         }
 
-        // --- РАССТАНОВКА ТОЧЕК (ШАГИ 2 и 4) ---
-        function setupPointPlacement(type, image, points, container, countElement) {
+        function setupPointPlacement(type, image, points, container, countEl) {
             if (!image) return;
             container.innerHTML = `<img src="${image.src}">`;
-            container.onclick = (e) => {
+            container.onclick = e => {
                 if (points.length >= MAX_POINTS) return;
                 const rect = container.getBoundingClientRect(), img = container.querySelector('img');
                 const scaleX = img.naturalWidth / img.offsetWidth, scaleY = img.naturalHeight / img.offsetHeight;
                 points.push([(e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY]);
                 renderPoints(points, container);
-                countElement.textContent = points.length;
+                countEl.textContent = points.length;
             };
             renderPoints(points, container);
-            countElement.textContent = points.length;
+            countEl.textContent = points.length;
         }
         
         function renderPoints(points, container) {
@@ -136,38 +162,91 @@
             points.forEach((p, i) => {
                 const pointEl = document.createElement('div');
                 pointEl.className = `point point-${i + 1}`;
-                pointEl.style.left = `${p[0] * scaleX}px`;
-                pointEl.style.top = `${p[1] * scaleY}px`;
+                pointEl.style.left = `${p[0] * scaleX}px`; pointEl.style.top = `${p[1] * scaleY}px`;
                 pointEl.innerHTML = i + 1;
                 container.appendChild(pointEl);
             });
         }
 
         function clearPoints(type) {
-            const containerId = type === 'contour' ? 'contourImageContainer' : 'projImageContainer';
-            const pointsArray = type === 'contour' ? contourPoints : projPoints;
-            const countId = type === 'contour' ? 'contourPointCount' : 'projPointCount';
-            pointsArray.length = 0;
-            renderPoints(pointsArray, document.getElementById(containerId));
-            document.getElementById(countId).textContent = 0;
+            const config = type === 'contour' 
+                ? { points: contourPoints, containerId: 'contourImageContainer', countId: 'contourPointCount' }
+                : { points: projPoints, containerId: 'projImageContainer', countId: 'projPointCount' };
+            config.points.length = 0;
+            renderPoints(config.points, document.getElementById(config.containerId));
+            document.getElementById(config.countId).textContent = 0;
         }
 
-        // --- ИНТЕРАКТИВНАЯ ДЕФОРМАЦИЯ (ШАГ 5) ---
+        // --- КАЛИБРОВКА (ШАГ 4) ---
+        function initializeCalibrationStep() {
+            const container = document.getElementById('calibrationContainer');
+            const img = document.createElement('img');
+            img.src = projImage.src;
+            const gridCanvas = document.createElement('canvas');
+            gridCanvas.className = 'grid-overlay';
+            container.innerHTML = '';
+            container.append(img, gridCanvas);
+
+            const gridSizeSlider = document.getElementById('gridSize');
+            const showGridCheck = document.getElementById('showGrid');
+            const cellSizeInput = document.getElementById('cellSize');
+
+            function updateCalibration() {
+                gridSize = parseInt(gridSizeSlider.value);
+                cellSize = parseFloat(cellSizeInput.value) || 10;
+                document.getElementById('gridSizeValue').textContent = gridSize;
+                gridCanvas.style.display = showGridCheck.checked ? 'block' : 'none';
+                drawGrid();
+                updateInfo();
+            }
+
+            function drawGrid() {
+                gridCanvas.width = img.offsetWidth;
+                gridCanvas.height = img.offsetHeight;
+                const ctx = gridCanvas.getContext('2d');
+                ctx.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+                ctx.strokeStyle = '#007bff';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < gridCanvas.width; x += gridSize) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, gridCanvas.height); ctx.stroke();
+                }
+                for (let y = 0; y < gridCanvas.height; y += gridSize) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(gridCanvas.width, y); ctx.stroke();
+                }
+            }
+            
+            function updateInfo() {
+                const widthInCells = Math.round(img.offsetWidth / gridSize);
+                const heightInCells = Math.round(img.offsetHeight / gridSize);
+                const realWidth = (widthInCells * cellSize).toFixed(1);
+                const realHeight = (heightInCells * cellSize).toFixed(1);
+                document.getElementById('originalImageInfo').textContent = `${projImage.naturalWidth} x ${projImage.naturalHeight} px`;
+                document.getElementById('projectionSize').textContent = `${realWidth} x ${realHeight} cm`;
+            }
+
+            img.onload = updateCalibration;
+            if (img.complete) updateCalibration();
+            gridSizeSlider.oninput = updateCalibration;
+            showGridCheck.onchange = updateCalibration;
+            cellSizeInput.oninput = updateCalibration;
+        }
+
+        // --- ИНТЕРАКТИВНАЯ ДЕФОРМАЦИЯ (ШАГ 6) ---
         function initializeDeformationStep() {
             if (contourPoints.length !== projPoints.length || contourPoints.length < 3) {
-                alert("Ошибка: Количество точек на контуре и на изображении должно совпадать (и быть не менее 3). Пожалуйста, вернитесь и исправьте.");
-                nextStep(2); return;
+                alert("Ошибка: Количество точек на контуре и на изображении должно совпадать (и быть не менее 3).");
+                return nextStep(2);
             }
 
             const container = document.getElementById('finalCanvasContainer');
-            container.innerHTML = ''; // Очистка
+            container.innerHTML = ''; 
             const canvas = document.createElement('canvas');
             container.appendChild(canvas);
             const ctx = canvas.getContext('2d');
             canvas.width = bgImage.naturalWidth;
             canvas.height = bgImage.naturalHeight;
 
-            let draggablePoints = JSON.parse(JSON.stringify(projPoints)); // Клонируем точки для перетаскивания
+            let draggablePoints = JSON.parse(JSON.stringify(contourPoints));
 
             function redraw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -176,19 +255,8 @@
                 warp(ctx, projImage, projPoints, draggablePoints);
                 ctx.globalAlpha = 1.0;
             }
-
-            // Рендер статичных точек контура
+            
             const scaleX = canvas.offsetWidth / bgImage.naturalWidth, scaleY = canvas.offsetHeight / bgImage.naturalHeight;
-            contourPoints.forEach((p, i) => {
-                const pointEl = document.createElement('div');
-                pointEl.className = `point static-point point-${i + 1}`;
-                pointEl.style.left = `${p[0] * scaleX}px`;
-                pointEl.style.top = `${p[1] * scaleY}px`;
-                pointEl.innerHTML = i + 1;
-                container.appendChild(pointEl);
-            });
-
-            // Рендер перетаскиваемых точек
             draggablePoints.forEach((p, i) => {
                 const pointEl = document.createElement('div');
                 pointEl.className = `point draggable-point point-${i + 1}`;
@@ -199,7 +267,7 @@
                 makeDraggable(pointEl, p, scaleX, scaleY, redraw);
             });
             
-            redraw(); // Первая отрисовка
+            redraw();
         }
 
         function makeDraggable(element, point, scaleX, scaleY, onDrag) {
@@ -210,50 +278,40 @@
                 const parentRect = element.parentElement.getBoundingClientRect();
                 element.style.left = `${Math.max(0, Math.min(e.clientX - parentRect.left, parentRect.width))}px`;
                 element.style.top = `${Math.max(0, Math.min(e.clientY - parentRect.top, parentRect.height))}px`;
-                point[0] = element.offsetLeft / scaleX; // Обновляем реальные координаты
+                point[0] = element.offsetLeft / scaleX;
                 point[1] = element.offsetTop / scaleY;
                 onDrag();
             };
             document.onmouseup = () => isDragging = false;
         }
         
-        // --- МАТЕМАТИКА ДЕФОРМАЦИИ ---
         function warp(ctx, srcImage, srcPoints, dstPoints) {
             try {
-                const delaunaySrc = Delaunator.from(srcPoints);
-                for (let i = 0; i < delaunaySrc.triangles.length; i += 3) {
-                    const t = [delaunaySrc.triangles[i], delaunaySrc.triangles[i+1], delaunaySrc.triangles[i+2]];
-                    textureMap(ctx, srcImage, 
-                        srcPoints[t[0]], srcPoints[t[1]], srcPoints[t[2]], 
-                        dstPoints[t[0]], dstPoints[t[1]], dstPoints[t[2]]);
+                const delaunay = Delaunator.from(srcPoints);
+                for (let i = 0; i < delaunay.triangles.length; i += 3) {
+                    const t = [delaunay.triangles[i], delaunay.triangles[i+1], delaunay.triangles[i+2]];
+                    textureMap(ctx, srcImage, srcPoints[t[0]], srcPoints[t[1]], srcPoints[t[2]], dstPoints[t[0]], dstPoints[t[1]], dstPoints[t[2]]);
                 }
-            } catch (e) { console.error("Ошибка триангуляции:", e); }
+            } catch (e) { console.error("Ошибка деформации:", e); }
         }
         
-        function textureMap(ctx, texture, p0, p1, p2, p3, p4, p5) {
-             const den = p0[0] * (p2[1] - p1[1]) - p1[0] * p2[1] + p2[0] * p1[1] + (p1[0] - p2[0]) * p0[1];
+        function textureMap(ctx, t, p0, p1, p2, p3, p4, p5) {
+             const den = p0[0]*(p2[1]-p1[1]) - p1[0]*p2[1] + p2[0]*p1[1] + (p1[0]-p2[0])*p0[1];
              if (Math.abs(den) < 1e-8) return;
-             ctx.save();
-             ctx.beginPath();
-             ctx.moveTo(p3[0], p3[1]); ctx.lineTo(p4[0], p4[1]); ctx.lineTo(p5[0], p5[1]);
-             ctx.closePath();
-             ctx.clip();
+             ctx.save(); ctx.beginPath(); ctx.moveTo(p3[0],p3[1]); ctx.lineTo(p4[0],p4[1]); ctx.lineTo(p5[0],p5[1]);
+             ctx.closePath(); ctx.clip();
              const m11 = (p3[0]*(p2[1]-p1[1]) - p4[0]*p2[1] + p5[0]*p1[1] + (p4[0]-p5[0])*p0[1]) / den;
              const m12 = (p3[1]*(p2[1]-p1[1]) - p4[1]*p2[1] + p5[1]*p1[1] + (p4[1]-p5[1])*p0[1]) / den;
              const m21 = (p4[0]*p2[0] - p5[0]*p1[0] - p3[0]*(p2[0]-p1[0]) + (p5[0]-p4[0])*p0[0]) / den;
              const m22 = (p4[1]*p2[0] - p5[1]*p1[0] - p3[1]*(p2[0]-p1[0]) + (p5[1]-p4[1])*p0[0]) / den;
              const m31 = (p3[0]*(p2[1]*p1[0]-p1[1]*p2[0]) + p0[0]*(p4[0]*p2[1]-p5[0]*p1[1]) + p0[1]*(p5[0]*p1[0]-p4[0]*p2[0])) / den;
              const m32 = (p3[1]*(p2[1]*p1[0]-p1[1]*p2[0]) + p0[1]*(p4[1]*p2[0]-p5[1]*p1[0]) + p0[0]*(p5[1]*p1[1]-p4[1]*p2[1])) / den;
-             ctx.transform(m11, m12, m21, m22, m31, m32);
-             ctx.drawImage(texture, 0, 0);
-             ctx.restore();
+             ctx.transform(m11,m12,m21,m22,m31,m32);
+             ctx.drawImage(t,0,0); ctx.restore();
         }
 
-        function downloadResult() {
-            alert("Функция скачивания находится в разработке.");
-        }
+        function downloadResult() { alert("Функция скачивания в разработке."); }
 
-        // --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ---
         window.handleFile = handleFile;
         window.nextStep = nextStep;
         window.clearPoints = clearPoints;
