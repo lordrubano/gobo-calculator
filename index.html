@@ -1,280 +1,736 @@
-<!DOCTYPE html><html lang="ru"><head>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профессиональный редактор-калькулятор для гобо (Финальная версия)</title>
+    <title>Профессиональный редактор-калькулятор для гобо v1.5</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
-    <script src="https://d3js.org/d3-delaunay.v7.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
     <style>
-        .canvas-container { position: relative; border: 2px solid #374151; border-radius: 8px; overflow: hidden; }
-        .canvas-container canvas { display: block; cursor: crosshair; width: 100%; height: auto; }
-        .magnifier { position: absolute; width: 120px; height: 120px; border: 2px solid #3B82F6; border-radius: 50%; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.3); pointer-events: none; z-index: 1000; display: none; overflow: hidden; }
-        .magnifier canvas { width: 120px; height: 120px; border-radius: 50%; }
-        .point-marker { position: absolute; width: 18px; height: 18px; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); cursor: move; z-index: 100; font-size: 10px; color: white; text-align: center; line-height: 14px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-        .point-marker:hover { transform: translate(-50%, -50%) scale(1.2); }
-        .panel-header { background: linear-gradient(135deg, #1E40AF, #3B82F6); color: white; padding: 12px; border-radius: 8px 8px 0 0; font-weight: bold; display: flex; align-items: center; gap: 8px; }
-        .status-ready { color: #10B981; } .status-working { color: #F59E0B; } .status-error { color: #EF4444; }
+        .canvas-container {
+            position: relative;
+            border: 2px solid #374151;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .canvas-container canvas {
+            display: block;
+            cursor: crosshair;
+        }
+        
+        .magnifier {
+            position: fixed; /* Изменено на fixed для лучшего позиционирования */
+            width: 120px;
+            height: 120px;
+            border: 2px solid #3B82F6;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5); /* Полупрозрачный фон */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            overflow: hidden; /* Обрезаем содержимое по кругу */
+        }
+        
+        .magnifier canvas {
+            width: 100%; /* Убрал фиксированные размеры, чтобы заполнял родителя */
+            height: 100%;
+            border-radius: 50%;
+        }
+        
+        .point-marker {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            cursor: move;
+            z-index: 100;
+            font-size: 10px;
+            color: white;
+            text-align: center;
+            line-height: 12px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        
+        .point-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+        }
+        
+        .panel-header {
+            background: linear-gradient(135deg, #1E40AF, #3B82F6);
+            color: white;
+            padding: 12px;
+            border-radius: 8px 8px 0 0;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-ready { color: #10B981; }
+        .status-working { color: #F59E0B; }
+        .status-error { color: #EF4444; }
     </style>
 </head>
 <body class="bg-gray-900 text-white min-h-screen">
     <div class="container mx-auto px-4 py-6">
-        <div class="text-center mb-8"><h1 class="text-3xl font-bold text-blue-400 mb-2"><i class="fas fa-image mr-2"></i>Профессиональный редактор-калькулятор для гобо</h1><p class="text-gray-400">Финальная стабильная версия</p></div>
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">
+                <i class="fas fa-image mr-2"></i>
+                Профессиональный редактор-калькулятор для гобо
+            </h1>
+            <p class="text-gray-400">Версия 1.5 (финальная) - Кусочно-аффинные преобразования с двухслойным предпросмотром</p>
+        </div>
         <div class="flex flex-wrap justify-center gap-4 mb-8">
-            <button id="loadTemplate" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition-colors"><i class="fas fa-image mr-2"></i>Загрузить фото-шаблон</button>
-            <button id="loadSource" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition-colors"><i class="fas fa-upload mr-2"></i>Загрузить изображение</button>
-            <button id="clearPoints" class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition-colors"><i class="fas fa-trash mr-2"></i>Очистить точки</button>
-            <button id="exportBtn" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition-colors" disabled><i class="fas fa-download mr-2"></i>Экспорт</button>
+            <button id="loadTemplate" class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-image mr-2"></i>Загрузить фото-шаблон
+            </button>
+            <button id="loadSource" class="bg-green-600 hover:bg-green-700 px-6 py-3 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-upload mr-2"></i>Загрузить изображение
+            </button>
+            <button id="clearPoints" class="bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-trash mr-2"></i>Очистить точки
+            </button>
+            <button id="exportBtn" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold transition-colors">
+                <i class="fas fa-download mr-2"></i>Экспорт
+            </button>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <div class="bg-gray-800 rounded-lg overflow-hidden"><div class="panel-header"><i class="fas fa-image-portrait"></i><span>Исходное изображение</span></div><div class="p-4"><div class="canvas-container relative"><canvas id="sourceCanvas"></canvas></div><div class="mt-2 text-center"><span class="text-sm">Точек источника: <span id="sourceCount" class="font-bold text-blue-400">0</span></span></div></div></div>
-            <div class="bg-gray-800 rounded-lg overflow-hidden"><div class="panel-header"><i class="fas fa-crosshairs"></i><span>Фото-шаблон</span></div><div class="p-4"><div class="canvas-container relative"><canvas id="templateCanvas"></canvas></div><div class="mt-2 text-center"><span class="text-sm">Точек цели: <span id="targetCount" class="font-bold text-green-400">0</span></span></div></div></div>
-            <div class="bg-gray-800 rounded-lg overflow-hidden"><div class="panel-header"><i class="fas fa-eye"></i><span>Предпросмотр деформации</span></div><div class="p-4"><div class="canvas-container"><canvas id="previewCanvas"></canvas></div><div class="mt-2 text-center"><span class="text-sm">Статус: <span id="previewStatus" class="font-bold">Загрузите изображения</span></span></div></div></div>
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="panel-header">
+                    <i class="fas fa-image-portrait"></i>
+                    <span>Исходное изображение</span>
+                </div>
+                <div class="p-4">
+                    <p class="text-sm text-gray-400 mb-4">Кликните по ключевым точкам фигуры</p>
+                    <div class="canvas-container relative">
+                        <canvas id="sourceCanvas" width="300" height="400"></canvas>
+                        <div id="sourceMagnifier" class="magnifier">
+                            <canvas width="116" height="116"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <span class="text-sm">Точек источника: <span id="sourceCount" class="font-bold text-blue-400">0</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="panel-header">
+                    <i class="fas fa-crosshairs"></i>
+                    <span>Фото-шаблон</span>
+                </div>
+                <div class="p-4">
+                    <p class="text-sm text-gray-400 mb-4">Кликните по размеченным точкам в том же порядке</p>
+                    <div class="canvas-container relative">
+                        <canvas id="templateCanvas" width="300" height="400"></canvas>
+                        <div id="templateMagnifier" class="magnifier">
+                            <canvas width="116" height="116"></canvas>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <span class="text-sm">Точек цели: <span id="targetCount" class="font-bold text-green-400">0</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-lg overflow-hidden">
+                <div class="panel-header">
+                    <i class="fas fa-eye"></i>
+                    <span>Предпросмотр деформации</span>
+                </div>
+                <div class="p-4">
+                    <p class="text-sm text-gray-400 mb-4">Real-time результат деформации</p>
+                    <div class="canvas-container">
+                        <canvas id="previewCanvas" width="300" height="400"></canvas>
+                    </div>
+                    <div class="mt-2 text-center">
+                        <span class="text-sm">Статус: <span id="previewStatus" class="font-bold status-ready">Готово к экспорту</span></span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="bg-gray-800 rounded-lg p-6"><h3 class="text-xl font-bold text-yellow-400 mb-4"><i class="fas fa-info-circle mr-2"></i>Инструкция по использованию:</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300"><div><p class="mb-2">1. Загрузите фото-шаблон</p><p class="mb-2">2. Загрузите исходное изображение</p><p class="mb-2">3. Кликните по ключевым точкам на исходном изображении (минимум 4)</p><p class="mb-2">4. Кликните по соответствующим точкам на фото-шаблоне в том же порядке</p></div><div><p class="mb-2">5. Используйте лупу для точного позиционирования</p><p class="mb-2">6. Перетаскивайте точки для финальной подгонки</p><p class="mb-2">7. Наблюдайте real-time деформацию в окне предпросмотра</p><p class="mb-2">8. Нажмите "Экспорт" для создания готового файла гобо</p></div></div></div>
+        <div class="bg-gray-800 rounded-lg p-6">
+            <h3 class="text-xl font-bold text-yellow-400 mb-4">
+                <i class="fas fa-info-circle mr-2"></i>
+                Инструкция по использованию:
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-300">
+                <div>
+                    <p class="mb-2">1. Загрузите **фото-шаблон** с размеченными точками</p>
+                    <p class="mb-2">2. Загрузите **исходное изображение** для деформации</p>
+                    <p class="mb-2">3. Кликните по **ключевым точкам** на исходном изображении (минимум 4 точки)</p>
+                    <p class="mb-2">4. Кликните по **соответствующим точкам** на фото-шаблоне в том же порядке</p>
+                </div>
+                <div>
+                    <p class="mb-2">5. Используйте **экранную лупу** для точного позиционирования</p>
+                    <p class="mb-2">6. **Перетаскивайте** точки для финальной подгонки</p>
+                    <p class="mb-2">7. Наблюдайте **real-time деформацию** в окне предпросмотра</p>
+                    <p class="mb-2">8. Нажмите "**Экспорт**" для создания готового файла гобо</p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div id="magnifier" class="magnifier"></div>
-    <input type="file" id="templateInput" accept="image/*" style="display: none;"><input type="file" id="sourceInput" accept="image/*" style="display: none;">
-    <div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;"><div class="bg-gray-800 p-8 rounded-lg max-w-md w-full mx-4"><h3 class="text-xl font-bold mb-6 text-center">Параметры экспорта</h3><div class="space-y-4"><div><label class="block text-sm font-medium mb-2">Физический диаметр гобо (мм):</label><input type="number" id="diameterInput" value="37.5" min="10" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"></div><div><label class="block text-sm font-medium mb-2">Требуемое разрешение (DPI):</label><input type="number" id="dpiInput" value="2700" min="300" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white"></div><div class="flex space-x-4 pt-4"><button id="confirmExport" class="flex-1 bg-purple-600 hover:bg-purple-700 py-2 px-4 rounded-md font-semibold transition-colors"><i class="fas fa-download mr-2"></i>Сохранить</button><button id="cancelExport" class="flex-1 bg-gray-600 hover:bg-gray-700 py-2 px-4 rounded-md font-semibold transition-colors">Отмена</button></div></div></div></div>
-    
+    <input type="file" id="templateInput" accept="image/*" style="display: none;">
+    <input type="file" id="sourceInput" accept="image/*" style="display: none;">
+    <div id="exportModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+        <div class="bg-gray-800 p-8 rounded-lg max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-6 text-center">Параметры экспорта</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Физический диаметр гобо (мм):</label>
+                    <input type="number" id="diameterInput" value="50" min="10" max="500" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Требуемое разрешение (DPI):</label>
+                    <input type="number" id="dpiInput" value="2700" min="300" max="5000" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white">
+                </div>
+                <div class="flex space-x-4 pt-4">
+                    <button id="confirmExport" class="flex-1 bg-purple-600 hover:bg-purple-700 py-2 px-4 rounded-md font-semibold transition-colors">
+                        <i class="fas fa-download mr-2"></i>Сохранить
+                    </button>
+                    <button id="cancelExport" class="flex-1 bg-gray-600 hover:bg-gray-700 py-2 px-4 rounded-md font-semibold transition-colors">
+                        Отмена
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         class GoboEditor {
             constructor() {
-                this.sourcePoints = []; this.targetPoints = [];
-                this.sourceImage = null; this.templateImage = null;
-                this.draggingPoint = null; this.sourceRenderInfo = {};
-                this.initCanvases(); this.bindEvents();
+                this.sourcePoints = [];
+                this.targetPoints = [];
+                this.sourceImage = null;
+                this.templateImage = null;
+                this.isDragging = false;
+                this.dragPoint = null;
+                this.dragCanvas = null;
+                this.currentDeformationData = null; 
+                
+                this.initCanvases();
+                this.bindEvents();
             }
 
             initCanvases() {
-                ['source', 'template', 'preview'].forEach(type => {
-                    this[type + 'Canvas'] = document.getElementById(type + 'Canvas');
-                    this[type + 'Ctx'] = this[type + 'Canvas'].getContext('2d');
-                });
-                this.magnifier = document.getElementById('magnifier');
+                this.sourceCanvas = document.getElementById('sourceCanvas');
+                this.templateCanvas = document.getElementById('templateCanvas');
+                this.previewCanvas = document.getElementById('previewCanvas');
+                
+                this.sourceCtx = this.sourceCanvas.getContext('2d');
+                this.templateCtx = this.templateCanvas.getContext('2d');
+                this.previewCtx = this.previewCanvas.getContext('2d');
+                
+                this.sourceMagnifier = document.getElementById('sourceMagnifier');
+                this.templateMagnifier = document.getElementById('templateMagnifier');
+                this.sourceMagCtx = this.sourceMagnifier.querySelector('canvas').getContext('2d');
+                this.templateMagCtx = this.templateMagnifier.querySelector('canvas').getContext('2d');
             }
 
             bindEvents() {
-                const resizeObserver = new ResizeObserver(() => this.onResize());
-                resizeObserver.observe(this.sourceCanvas.parentElement);
-
-                document.getElementById('loadTemplate').addEventListener('click', () => document.getElementById('templateInput').click());
-                document.getElementById('loadSource').addEventListener('click', () => document.getElementById('sourceInput').click());
-                document.getElementById('templateInput').addEventListener('change', e => this.loadImage(e.target.files[0], 'template'));
-                document.getElementById('sourceInput').addEventListener('change', e => this.loadImage(e.target.files[0], 'source'));
-                document.getElementById('clearPoints').addEventListener('click', () => this.clearAllPoints());
-                document.getElementById('exportBtn').addEventListener('click', () => document.getElementById('exportModal').style.display = 'flex');
-                document.getElementById('cancelExport').addEventListener('click', () => document.getElementById('exportModal').style.display = 'none');
-                document.getElementById('confirmExport').addEventListener('click', () => this.exportGobo());
-
-                this.bindCanvasEvents(this.sourceCanvas, this.sourcePoints);
-                this.bindCanvasEvents(this.templateCanvas, this.targetPoints);
-            }
-            
-            onResize() {
-                [this.sourceCanvas, this.templateCanvas, this.previewCanvas].forEach(canvas => {
-                    const container = canvas.parentElement;
-                    canvas.width = container.clientWidth;
-                    canvas.height = container.clientHeight;
+                document.getElementById('loadTemplate').addEventListener('click', () => {
+                    document.getElementById('templateInput').click();
                 });
-                this.renderAll();
+                
+                document.getElementById('loadSource').addEventListener('click', () => {
+                    document.getElementById('sourceInput').click();
+                });
+                
+                document.getElementById('templateInput').addEventListener('change', (e) => {
+                    this.loadImage(e.target.files[0], 'template');
+                });
+                
+                document.getElementById('sourceInput').addEventListener('change', (e) => {
+                    this.loadImage(e.target.files[0], 'source');
+                });
+
+                document.getElementById('clearPoints').addEventListener('click', () => {
+                    this.clearAllPoints();
+                });
+
+                document.getElementById('exportBtn').addEventListener('click', () => {
+                    document.getElementById('exportModal').style.display = 'flex';
+                });
+                
+                document.getElementById('confirmExport').addEventListener('click', () => {
+                    this.exportGobo();
+                });
+                
+                document.getElementById('cancelExport').addEventListener('click', () => {
+                    document.getElementById('exportModal').style.display = 'none';
+                });
+
+                this.bindCanvasEvents(this.sourceCanvas, 'source');
+                this.bindCanvasEvents(this.templateCanvas, 'template');
+            }
+
+            bindCanvasEvents(canvas, type) {
+                const magnifier = type === 'source' ? this.sourceMagnifier : this.templateMagnifier;
+                
+                // Перемещаем лупу с учетом прокрутки и границ окна
+                canvas.addEventListener('mousemove', (e) => {
+                    // Используем e.clientX/Y для позиционирования лупы относительно окна
+                    magnifier.style.left = (e.clientX + 20) + 'px'; // Сдвиг вправо
+                    magnifier.style.top = (e.clientY - 60) + 'px'; // Сдвиг вверх
+                    magnifier.style.display = 'block';
+
+                    const rect = canvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    this.updateMagnifier(x, y, canvas, type);
+
+                    // Обработка перетаскивания точек
+                    if (this.isDragging && this.dragCanvas === canvas) {
+                        const points = type === 'source' ? this.sourcePoints : this.targetPoints;
+                        if (this.dragPoint !== null && this.dragPoint < points.length) {
+                            points[this.dragPoint] = {x, y};
+                            if (type === 'source') {
+                                this.drawSourceImage();
+                            } else {
+                                this.drawTemplateImage();
+                            }
+                            this.updatePreview();
+                            this.updateCounts();
+                        }
+                    }
+                });
+                
+                canvas.addEventListener('mouseenter', () => {
+                    magnifier.style.display = 'block';
+                });
+                
+                canvas.addEventListener('mouseleave', () => {
+                    magnifier.style.display = 'none';
+                });
+                
+                canvas.addEventListener('mousedown', (e) => {
+                    this.handleMouseDown(e, canvas, type);
+                });
+                
+                canvas.addEventListener('mouseup', (e) => {
+                    this.handleMouseUp(e, canvas, type);
+                });
+                
+                canvas.addEventListener('click', (e) => {
+                    // Клик должен добавлять точку, только если не было перетаскивания
+                    if (!this.isDragging) { // Проверяем флаг isDragging
+                        this.handleCanvasClick(e, canvas, type);
+                    }
+                });
             }
 
             loadImage(file, type) {
-                if (!file) return;
                 const reader = new FileReader();
-                reader.onload = e => {
+                reader.onload = (e) => {
                     const img = new Image();
-                    img.crossOrigin = "anonymous";
                     img.onload = () => {
-                        if (type === 'source') this.sourceImage = img;
-                        else this.templateImage = img;
-                        this.renderAll();
+                        if (type === 'source') {
+                            this.sourceImage = img;
+                            this.drawSourceImage();
+                        } else {
+                            this.templateImage = img;
+                            this.drawTemplateImage();
+                        }
+                        this.updatePreview();
                     };
                     img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             }
 
-            bindCanvasEvents(canvas, points) {
-                const getCoords = e => { const rect = canvas.getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top }; };
-                canvas.addEventListener('mousedown', e => {
-                    const coords = getCoords(e);
-                    for (let i = 0; i < points.length; i++) {
-                        if (Math.sqrt((coords.x - points[i][0])**2 + (coords.y - points[i][1])**2) < 10) {
-                            this.draggingPoint = { index: i, points: points }; return;
-                        }
-                    }
-                });
-                canvas.addEventListener('mousemove', e => {
-                    const coords = getCoords(e);
-                    this.updateMagnifier(e, canvas, coords);
-                    if (this.draggingPoint && this.draggingPoint.points === points) {
-                        points[this.draggingPoint.index] = [coords.x, coords.y];
-                        this.renderAll();
-                    }
-                });
-                canvas.addEventListener('mouseup', () => { this.draggingPoint = null; });
-                canvas.addEventListener('mouseleave', () => { this.draggingPoint = null; this.magnifier.style.display = 'none'; });
-                canvas.addEventListener('mouseenter', () => { this.magnifier.style.display = 'block'; });
-                canvas.addEventListener('click', e => {
-                    if (this.draggingPoint) return;
-                    const coords = getCoords(e);
-                    for (let p of points) { if (Math.sqrt((coords.x - p[0])**2 + (coords.y - p[1])**2) < 10) return; }
-                    if (canvas === this.sourceCanvas || points.length < this.sourcePoints.length) {
-                        points.push([coords.x, coords.y]);
-                        this.renderAll();
-                    }
-                });
+            drawImageScaled(ctx, img, canvasWidth, canvasHeight) {
+                if (!img) return;
+                
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                
+                const scale = Math.min(canvasWidth / img.width, canvasHeight / img.height);
+                const width = img.width * scale;
+                const height = img.height * scale;
+                const x = (canvasWidth - width) / 2;
+                const y = (canvasHeight - height) / 2;
+                
+                ctx.drawImage(img, x, y, width, height);
             }
 
-            clearAllPoints() { this.sourcePoints = []; this.targetPoints = []; this.renderAll(); }
-
-            renderAll() {
-                this.sourceRenderInfo = this.drawCanvasWithAspectRatio(this.sourceCtx, this.sourceCanvas, this.sourceImage, this.sourcePoints);
-                this.drawCanvasWithAspectRatio(this.templateCtx, this.templateCanvas, this.templateImage, this.targetPoints);
-                this.updatePreview();
-                this.updateStatus();
+            drawSourceImage() {
+                this.drawImageScaled(this.sourceCtx, this.sourceImage, this.sourceCanvas.width, this.sourceCanvas.height);
+                this.drawPoints('source');
             }
 
-            drawCanvasWithAspectRatio(ctx, canvas, img, points) {
-                const renderInfo = { ox: 0, oy: 0, dw: canvas.width, dh: canvas.height };
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                if(img){
-                    const ar = img.naturalWidth / img.naturalHeight;
-                    if(ar > canvas.width / canvas.height) { renderInfo.dh = canvas.width / ar; renderInfo.oy = (canvas.height - renderInfo.dh) / 2; }
-                    else { renderInfo.dw = canvas.height * ar; renderInfo.ox = (canvas.width - renderInfo.dw) / 2; }
-                    ctx.drawImage(img, renderInfo.ox, renderInfo.oy, renderInfo.dw, renderInfo.dh);
+            drawTemplateImage() {
+                this.drawImageScaled(this.templateCtx, this.templateImage, this.templateCanvas.width, this.templateCanvas.height);
+                this.drawPoints('template');
+            }
+
+            drawPoints(type) {
+                const canvas = type === 'source' ? this.sourceCanvas : this.templateCanvas;
+                const ctx = type === 'source' ? this.sourceCtx : this.templateCtx;
+                const points = type === 'source' ? this.sourcePoints : this.targetPoints;
+                
+                // Перерисовываем изображение, чтобы убрать старые точки
+                if (type === 'source') {
+                    this.drawImageScaled(ctx, this.sourceImage, canvas.width, canvas.height);
+                } else {
+                    this.drawImageScaled(ctx, this.templateImage, canvas.width, canvas.height);
                 }
-                points.forEach((p, i) => this.drawPoint(ctx, p, i + 1));
-                return renderInfo;
+
+                points.forEach((point, index) => {
+                    // Рисуем точку
+                    ctx.beginPath();
+                    ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = index === 0 ? '#EF4444' : '#3B82F6'; 
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    
+                    // Рисуем номер
+                    ctx.fillStyle = 'white';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText((index + 1).toString(), point.x, point.y);
+                });
+                
+                // Соединяем точки линиями
+                if (points.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(points[0].x, points[0].y);
+                    for (let i = 1; i < points.length; i++) {
+                        ctx.lineTo(points[i].x, points[i].y);
+                    }
+                    if (points.length > 2) {
+                        ctx.closePath();
+                    }
+                    ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
             }
 
-            drawPoint(ctx, p, n) {
-                ctx.beginPath(); ctx.arc(p[0], p[1], 8, 0, 2 * Math.PI);
-                ctx.fillStyle = n === 1 ? '#EF4444' : '#3B82F6'; ctx.fill();
-                ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.fillStyle = 'white'; ctx.font = 'bold 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(n, p[0], p[1]);
+            updateMagnifier(x, y, canvas, type) {
+                const magnifier = type === 'source' ? this.sourceMagnifier : this.templateMagnifier;
+                const magCtx = type === 'source' ? this.sourceMagCtx : this.templateMagCtx;
+                const zoom = 3; // Коэффициент увеличения
+                const magSize = 116; // Размер внутреннего холста лупы
+                const halfMagSize = magSize / 2;
+                const sourceSize = 20; // Размер области источника для увеличения
+                
+                magCtx.clearRect(0, 0, magSize, magSize);
+                
+                // Вычисляем координаты источника на оригинальном холсте
+                const sx = x - sourceSize;
+                const sy = y - sourceSize;
+                
+                // Отрисовываем увеличенную область
+                magCtx.drawImage(
+                    canvas, 
+                    sx, sy, // Координаты верхнего левого угла источника
+                    sourceSize * 2, sourceSize * 2, // Ширина и высота источника
+                    0, 0, // Координаты верхнего левого угла назначения
+                    magSize, magSize // Ширина и высота назначения (увеличено)
+                );
+                
+                // Рисуем перекрестие в центре лупы
+                magCtx.strokeStyle = '#EF4444';
+                magCtx.lineWidth = 1;
+                magCtx.beginPath();
+                magCtx.moveTo(halfMagSize, 0);
+                magCtx.lineTo(halfMagSize, magSize);
+                magCtx.moveTo(0, halfMagSize);
+                magCtx.lineTo(magSize, halfMagSize);
+                magCtx.stroke();
             }
 
-            updateMagnifier(e, canvas, coords) {
-                const img = canvas === this.sourceCanvas ? this.sourceImage : this.templateImage;
-                if (!img) { this.magnifier.style.display = 'none'; return; }
-                this.magnifier.style.display = 'block';
-                this.magnifier.style.left = `${e.clientX + 20}px`; this.magnifier.style.top = `${e.clientY - 60}px`;
-                const ctx = this.magnifier.getContext('2d') || this.magnifier.appendChild(document.createElement('canvas')).getContext('2d');
-                ctx.clearRect(0,0,120,120);
-                const zoom = 4;
-                ctx.drawImage(canvas, coords.x - 120 / zoom / 2, coords.y - 120 / zoom / 2, 120/zoom, 120/zoom, 0, 0, 120, 120);
-                ctx.strokeStyle = '#EF4444'; ctx.lineWidth = 1;
-                ctx.beginPath(); ctx.moveTo(60, 0); ctx.lineTo(60, 120); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(0, 60); ctx.lineTo(120, 60); ctx.stroke();
+            handleMouseDown(e, canvas, type) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const points = type === 'source' ? this.sourcePoints : this.targetPoints;
+                
+                for (let i = 0; i < points.length; i++) {
+                    const point = points[i];
+                    const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
+                    if (distance < 15) { // Увеличил радиус захвата точки
+                        this.isDragging = true;
+                        this.dragPoint = i;
+                        this.dragCanvas = canvas;
+                        canvas.style.cursor = 'grabbing';
+                        return;
+                    }
+                }
             }
 
-            updateStatus() {
-                const sC = this.sourcePoints.length, dC = this.targetPoints.length;
-                document.getElementById('sourceCount').textContent = sC; document.getElementById('targetCount').textContent = dC;
-                const statusSpan = document.getElementById('previewStatus'); const canWarp = sC >= 4 && sC === dC;
-                if(canWarp){statusSpan.textContent='Готово к экспорту'; statusSpan.className='font-bold status-ready'; this.exportBtn.disabled = false;}
-                else if(sC !== dC){statusSpan.textContent=`Синхронизация (${sC}/${dC})`; statusSpan.className='font-bold status-working'; this.exportBtn.disabled = true;}
-                else{statusSpan.textContent='Расставьте точки'; statusSpan.className='font-bold'; this.exportBtn.disabled = true;}
+            handleMouseUp(e, canvas, type) {
+                if (this.isDragging) {
+                    this.isDragging = false;
+                    this.dragPoint = null;
+                    this.dragCanvas = null;
+                    canvas.style.cursor = 'crosshair';
+                }
+            }
+
+            handleCanvasClick(e, canvas, type) {
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const points = type === 'source' ? this.sourcePoints : this.targetPoints;
+                
+                for (let point of points) {
+                    const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
+                    if (distance < 15) {
+                        return; // Не добавляем новую точку, если кликнули по существующей
+                    }
+                }
+                
+                points.push({x, y});
+                
+                if (type === 'source') {
+                    this.drawSourceImage();
+                } else {
+                    this.drawTemplateImage();
+                }
+                
+                this.updatePreview();
+                this.updateCounts();
+            }
+
+            clearAllPoints() {
+                this.sourcePoints = [];
+                this.targetPoints = [];
+                this.currentDeformationData = null;
+                this.drawSourceImage();
+                this.drawTemplateImage();
+                this.updatePreview();
+                this.updateCounts();
+            }
+
+            updateCounts() {
+                document.getElementById('sourceCount').textContent = this.sourcePoints.length;
+                document.getElementById('targetCount').textContent = this.targetPoints.length;
             }
 
             updatePreview() {
+                // Очищаем предпросмотр
                 this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
-                if (this.templateImage) this.drawCanvasWithAspectRatio(this.previewCtx, this.previewCanvas, this.templateImage, []);
-                if (!this.sourceImage || this.sourcePoints.length < 4 || this.sourcePoints.length !== this.targetPoints.length) return;
-                const warpedCanvas = this.getWarpedCanvas(this.sourceImage, this.sourcePoints, this.targetPoints, this.templateCanvas.width, this.templateCanvas.height);
-                if (warpedCanvas) this.previewCtx.drawImage(warpedCanvas, 0, 0);
-            }
-            
-            // --- ИСПРАВЛЕНИЕ 1: Использование d3.Delaunay для качественной триангуляции ---
-            getDelaunayTriangulation(points) {
-                if (points.length < 3) return [];
-                const pointArray = points.map(p => [p[0], p[1]]);
-                return d3.Delaunay.from(pointArray).triangles;
-            }
-
-            getWarpedCanvas(img, srcPts, destPts, w, h) {
-                const warpedCanvas = document.createElement('canvas'); warpedCanvas.width = w; warpedCanvas.height = h;
-                const warpedCtx = warpedCanvas.getContext('2d');
-                const absSrcPts = srcPts.map(p => [(p[0] - this.sourceRenderInfo.ox) / this.sourceRenderInfo.dw * img.naturalWidth, (p[1] - this.sourceRenderInfo.oy) / this.sourceRenderInfo.dh * img.naturalHeight]);
                 
-                const triangles = this.getDelaunayTriangulation(destPts); // Триангулируем по целевым точкам для лучшего покрытия
-                
-                for (let i = 0; i < triangles.length; i += 3) {
-                    const p_src = [absSrcPts[triangles[i]], absSrcPts[triangles[i+1]], absSrcPts[triangles[i+2]]];
-                    const p_dest = [destPts[triangles[i]], destPts[triangles[i+1]], destPts[triangles[i+2]]];
-                    
-                    // --- ИСПРАВЛЕНИЕ 2: Проверка на вырожденные треугольники для стабильности ---
-                    const triArea = (p0, p1, p2) => 0.5 * Math.abs(p0[0]*(p1[1]-p2[1]) + p1[0]*(p2[1]-p0[1]) + p2[0]*(p0[1]-p1[1]));
-                    if (triArea(p_src[0], p_src[1], p_src[2]) < 0.1) continue;
-
-                    warpedCtx.save();
-                    warpedCtx.beginPath();
-                    warpedCtx.moveTo(p_dest[0][0], p_dest[0][1]);
-                    warpedCtx.lineTo(p_dest[1][0], p_dest[1][1]);
-                    warpedCtx.lineTo(p_dest[2][0], p_dest[2][1]);
-                    warpedCtx.closePath();
-                    warpedCtx.clip();
-                    const transform = this.getAffineTransform(p_src, p_dest);
-                    if (transform) { warpedCtx.setTransform(transform.a, transform.b, transform.c, transform.d, transform.e, transform.f); warpedCtx.drawImage(img, 0, 0); }
-                    warpedCtx.restore();
+                // Если шаблон загружен, рисуем его как фон
+                if (this.templateImage) {
+                    this.previewCtx.globalAlpha = 0.7; // Полупрозрачный фон
+                    this.drawImageScaled(this.previewCtx, this.templateImage, this.previewCanvas.width, this.previewCanvas.height);
+                    this.previewCtx.globalAlpha = 1.0;
                 }
-                return warpedCanvas;
+
+                if (!this.sourceImage || !this.templateImage || 
+                    this.sourcePoints.length < 4 || this.targetPoints.length < 4 ||
+                    this.sourcePoints.length !== this.targetPoints.length) {
+                    
+                    this.currentDeformationData = null;
+                    document.getElementById('previewStatus').textContent = 'Добавьте минимум 4 парные точки';
+                    document.getElementById('previewStatus').className = 'font-bold status-working';
+                    return;
+                }
+
+                // Создаем виртуальный холст для промежуточного рендеринга деформированного изображения
+                const virtualCanvas = document.createElement('canvas');
+                virtualCanvas.width = this.previewCanvas.width;
+                virtualCanvas.height = this.previewCanvas.height;
+                const virtualCtx = virtualCanvas.getContext('2d');
+
+                // Применяем деформацию к виртуальному холсту
+                this.renderPiecewiseAffine(virtualCtx, this.sourcePoints, this.targetPoints, this.sourceImage, this.previewCanvas.width, this.previewCanvas.height);
+
+                // Сохраняем данные деформации для экспорта
+                this.currentDeformationData = {
+                    sourcePoints: [...this.sourcePoints],
+                    targetPoints: [...this.targetPoints],
+                    sourceImage: this.sourceImage,
+                    canvasWidth: this.previewCanvas.width, // Сохраняем размеры холста предпросмотра
+                    canvasHeight: this.previewCanvas.height
+                };
+
+                // Накладываем результат на предпросмотр
+                this.previewCtx.drawImage(virtualCanvas, 0, 0);
+
+                document.getElementById('previewStatus').textContent = 'Готово к экспорту';
+                document.getElementById('previewStatus').className = 'font-bold status-ready';
             }
 
-            getAffineTransform(src, dst) {
-                try {
-                    const M = math.matrix([[src[0][0],src[0][1],1,0,0,0],[0,0,0,src[0][0],src[0][1],1],[src[1][0],src[1][1],1,0,0,0],[0,0,0,src[1][0],src[1][1],1],[src[2][0],src[2][1],1,0,0,0],[0,0,0,src[2][0],src[2][1],1]]);
-                    const b = math.matrix([dst[0][0],dst[0][1],dst[1][0],dst[1][1],dst[2][0],dst[2][1]]);
-                    const t = math.lusolve(M,b).valueOf().flat();
-                    return {a:t[0],b:t[3],c:t[1],d:t[4],e:t[2],f:t[5]};
-                } catch(e) { return null; }
+            renderPiecewiseAffine(ctx, srcPts, dstPts, image, canvasWidth, canvasHeight) {
+                // Используем Delaunator для получения триангуляции
+                const flatPoints = srcPts.flatMap(p => [p.x, p.y]);
+                const delaunay = Delaunator.from(flatPoints);
+
+                const triangles = [];
+                for (let i = 0; i < delaunay.triangles.length; i += 3) {
+                    triangles.push([
+                        delaunay.triangles[i],
+                        delaunay.triangles[i + 1],
+                        delaunay.triangles[i + 2]
+                    ]);
+                }
+                
+                triangles.forEach(triangleIndices => {
+                    const [i, j, k] = triangleIndices;
+                    
+                    const srcTriangle = [
+                        srcPts[i],
+                        srcPts[j],
+                        srcPts[k]
+                    ];
+                    
+                    const dstTriangle = [
+                        dstPts[i],
+                        dstPts[j],
+                        dstPts[k]
+                    ];
+                    
+                    this.warpTriangle(ctx, srcTriangle, dstTriangle, image, canvasWidth, canvasHeight);
+                });
             }
 
-            // --- ИСПРАВЛЕНИЕ 3: Переработанный и надежный экспорт ---
+            warpTriangle(ctx, srcTriangle, dstTriangle, image, canvasWidth, canvasHeight) {
+                const matrix = this.getAffineMatrix(srcTriangle, dstTriangle);
+                if (!matrix) return;
+
+                ctx.save();
+                ctx.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+                
+                ctx.beginPath();
+                ctx.moveTo(srcTriangle[0].x, srcTriangle[0].y);
+                ctx.lineTo(srcTriangle[1].x, srcTriangle[1].y);
+                ctx.lineTo(srcTriangle[2].x, srcTriangle[2].y);
+                ctx.closePath();
+                ctx.clip();
+                
+                // Масштабируем исходное изображение для рисования на холсте
+                if (image) {
+                    // Рассчитываем масштаб, чтобы изображение вписалось в текущий холст
+                    const scale = Math.min(
+                        canvasWidth / image.width,
+                        canvasHeight / image.height
+                    );
+                    const width = image.width * scale;
+                    const height = image.height * scale;
+                    const x = (canvasWidth - width) / 2;
+                    const y = (canvasHeight - height) / 2;
+                    
+                    ctx.drawImage(image, x, y, width, height);
+                }
+                
+                ctx.restore();
+            }
+
+            getAffineMatrix(src, dst) {
+                const x1 = src[0].x, y1 = src[0].y;
+                const x2 = src[1].x, y2 = src[1].y;
+                const x3 = src[2].x, y3 = src[2].y;
+                
+                const u1 = dst[0].x, v1 = dst[0].y;
+                const u2 = dst[1].x, v2 = dst[1].y;
+                const u3 = dst[2].x, v3 = dst[2].y;
+                
+                const det = (x1 - x3) * (y2 - y3) - (x2 - x3) * (y1 - y3);
+                
+                if (Math.abs(det) < 1e-6) {
+                    console.warn("Детерминант близок к нулю. Треугольник вырожденный.");
+                    return null;
+                }
+                
+                const a = ((u1 - u3) * (y2 - y3) - (u2 - u3) * (y1 - y3)) / det;
+                const b = ((x1 - x3) * (u2 - u3) - (x2 - x3) * (u1 - u3)) / det;
+                const c = ((v1 - v3) * (y2 - y3) - (v2 - v3) * (y1 - y3)) / det;
+                const d = ((x1 - x3) * (v2 - v3) - (x2 - x3) * (v1 - v3)) / det;
+                const e = u3 - a * x3 - b * y3;
+                const f = v3 - c * x3 - d * y3;
+                
+                return [a, c, b, d, e, f];
+            }
+
             exportGobo() {
                 const diameter = parseFloat(document.getElementById('diameterInput').value);
-                const dpi = parseInt(document.getElementById('dpiInput').value);
-                if (isNaN(diameter) || isNaN(dpi) || diameter <= 0 || dpi <= 0) { alert('Введите корректные значения.'); return; }
+                const dpi = parseFloat(document.getElementById('dpiInput').value);
                 
-                const exportSizePx = Math.round((diameter / 25.4) * dpi);
+                if (!diameter || !dpi || diameter <= 0 || dpi <= 0) {
+                    alert('Пожалуйста, введите корректные значения для диаметра и DPI');
+                    return;
+                }
+
+                if (!this.currentDeformationData || !this.currentDeformationData.sourceImage) {
+                    alert('Нет данных деформации для экспорта. Убедитесь, что изображения загружены и точки расставлены.');
+                    return;
+                }
+                
+                // Рассчитываем размер экспортного холста (в пикселях)
+                const sizeInInches = diameter / 25.4; // мм в дюймы
+                const canvasSize = Math.round(sizeInInches * dpi);
+                
                 const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = exportSizePx; exportCanvas.height = exportSizePx;
+                exportCanvas.width = canvasSize;
+                exportCanvas.height = canvasSize;
                 const exportCtx = exportCanvas.getContext('2d');
                 
+                // Заливаем фон черным (для гобо обычно нужен непрозрачный фон)
                 exportCtx.fillStyle = 'black';
+                exportCtx.fillRect(0, 0, canvasSize, canvasSize);
+
+                // Сохраняем исходные точки и изображения из currentDeformationData
+                const sourcePointsPreview = this.currentDeformationData.sourcePoints;
+                const targetPointsPreview = this.currentDeformationData.targetPoints;
+                const sourceImageForExport = this.currentDeformationData.sourceImage;
+                const previewCanvasWidth = this.currentDeformationData.canvasWidth;
+                const previewCanvasHeight = this.currentDeformationData.canvasHeight;
+
+                // Масштабируем точки из координат предпросмотра в координаты экспортного холста
+                const scaleX = canvasSize / previewCanvasWidth;
+                const scaleY = canvasSize / previewCanvasHeight;
+                
+                const scaledSourcePoints = sourcePointsPreview.map(p => ({
+                    x: p.x * scaleX,
+                    y: p.y * scaleY
+                }));
+                
+                const scaledTargetPoints = targetPointsPreview.map(p => ({
+                    x: p.x * scaleX,
+                    y: p.y * scaleY
+                }));
+                
+                // Применяем деформацию к экспортному холсту
+                this.renderPiecewiseAffine(exportCtx, scaledSourcePoints, scaledTargetPoints, sourceImageForExport, canvasSize, canvasSize);
+
+                // Обрезаем по кругу
+                exportCtx.globalCompositeOperation = 'destination-in';
                 exportCtx.beginPath();
-                exportCtx.arc(exportSizePx / 2, exportSizePx / 2, exportSizePx / 2, 0, 2 * Math.PI);
+                exportCtx.arc(canvasSize / 2, canvasSize / 2, canvasSize / 2, 0, Math.PI * 2);
                 exportCtx.fill();
-                
-                let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
-                this.targetPoints.forEach(p => { minX=Math.min(minX,p[0]); minY=Math.min(minY,p[1]); maxX=Math.max(maxX,p[0]); maxY=Math.max(maxY,p[1]); });
-                const bboxWidth = maxX-minX, bboxHeight = maxY-minY;
-                if (bboxWidth === 0 || bboxHeight === 0) return;
-                
-                const margin = 0.95; // 95% заполнение
-                const scale = Math.min(exportSizePx*margin/bboxWidth, exportSizePx*margin/bboxHeight);
-                const offsetX = (exportSizePx - (bboxWidth * scale)) / 2;
-                const offsetY = (exportSizePx - (bboxHeight * scale)) / 2;
+                exportCtx.globalCompositeOperation = 'source-over'; // Сброс режима наложения
 
-                const finalDestPoints = this.targetPoints.map(p => [(p[0]-minX)*scale + offsetX, (p[1]-minY)*scale + offsetY]);
-                
-                const warpedCanvas = this.getWarpedCanvas(this.sourceImage, this.sourcePoints, finalDestPoints, exportSizePx, exportSizePx);
-                
-                if (warpedCanvas) exportCtx.drawImage(warpedCanvas, 0, 0);
-
-                const link = document.createElement('a');
-                link.download = `gobo_${diameter}mm_${dpi}dpi.png`;
-                link.href = exportCanvas.toDataURL('image/png');
-                link.click();
-                document.getElementById('exportModal').style.display = 'none';
+                // Скачиваем файл
+                exportCanvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `gobo_${diameter}mm_${dpi}dpi.png`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    document.getElementById('exportModal').style.display = 'none';
+                }, 'image/png');
             }
         }
-        new GoboEditor();
-    });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            new GoboEditor();
+        });
     </script>
 </body>
 </html>
