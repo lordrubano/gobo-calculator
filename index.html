@@ -211,10 +211,6 @@
                 this.dragCanvas = null;
                 this.currentDeformationData = null; 
                 
-                // Добавляем временный холст для рендеринга исходного изображения перед деформацией
-                this.sourceRenderCanvas = document.createElement('canvas');
-                this.sourceRenderCtx = this.sourceRenderCanvas.getContext('2d');
-
                 this.initCanvases();
                 this.bindEvents();
             }
@@ -293,7 +289,7 @@
                             } else {
                                 this.drawTemplateImage();
                             }
-                            this.updatePreview();
+                            this.updatePreview(); 
                             this.updateCounts();
                         }
                     }
@@ -317,7 +313,7 @@
                         this.dragPoint = null;
                         this.dragCanvas = null;
                         canvas.style.cursor = 'crosshair';
-                        this.updatePreview(); // Обновляем предпросмотр после перетаскивания
+                        this.updatePreview(); 
                     }
                 });
                 
@@ -335,11 +331,6 @@
                     img.onload = () => {
                         if (type === 'source') {
                             this.sourceImage = img;
-                            // Настраиваем sourceRenderCanvas под размеры sourceCanvas
-                            this.sourceRenderCanvas.width = this.sourceCanvas.width;
-                            this.sourceRenderCanvas.height = this.sourceCanvas.height;
-                            // Рендерим исходное изображение на временный холст
-                            this.drawImageScaled(this.sourceRenderCtx, this.sourceImage, this.sourceRenderCanvas.width, this.sourceRenderCanvas.height);
                             this.drawSourceImage();
                         } else {
                             this.templateImage = img;
@@ -367,11 +358,7 @@
             }
 
             drawSourceImage() {
-                // Вместо sourceImage рисуем содержимое sourceRenderCanvas
-                this.sourceCtx.clearRect(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
-                if (this.sourceRenderCanvas) {
-                    this.sourceCtx.drawImage(this.sourceRenderCanvas, 0, 0);
-                }
+                this.drawImageScaled(this.sourceCtx, this.sourceImage, this.sourceCanvas.width, this.sourceCanvas.height);
                 this.drawPoints('source');
             }
 
@@ -387,11 +374,7 @@
                 
                 // Перерисовываем изображение, чтобы убрать старые точки
                 if (type === 'source') {
-                    // Используем sourceRenderCanvas для перерисовки фона
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    if (this.sourceRenderCanvas) {
-                        ctx.drawImage(this.sourceRenderCanvas, 0, 0);
-                    }
+                    this.drawImageScaled(ctx, this.sourceImage, canvas.width, canvas.height);
                 } else {
                     this.drawImageScaled(ctx, this.templateImage, canvas.width, canvas.height);
                 }
@@ -445,11 +428,10 @@
                 const sx = x - sourceSize;
                 const sy = y - sourceSize;
                 
-                // Важно: для лупы source-канваса, используем sourceRenderCanvas для увеличения
-                const imgToMagnify = (type === 'source' && this.sourceRenderCanvas) ? this.sourceRenderCanvas : canvas;
+                const imageToMagnify = (type === 'source' && this.sourceImage) ? this.sourceCanvas : canvas; // Используем canvas для лупы
 
                 magCtx.drawImage(
-                    imgToMagnify, 
+                    imageToMagnify, 
                     sx, sy, 
                     sourceSize * 2, sourceSize * 2, 
                     0, 0, 
@@ -483,17 +465,6 @@
                         canvas.style.cursor = 'grabbing';
                         return;
                     }
-                }
-            }
-
-            // handleMouseUp теперь обновляет предпросмотр, чтобы деформация реагировала на отпускание точки
-            handleMouseUp(e, canvas, type) {
-                if (this.isDragging) {
-                    this.isDragging = false;
-                    this.dragPoint = null;
-                    this.dragCanvas = null;
-                    canvas.style.cursor = 'crosshair';
-                    this.updatePreview(); // Обновляем предпросмотр после завершения перетаскивания
                 }
             }
             
@@ -562,15 +533,18 @@
                 virtualCanvas.height = this.previewCanvas.height;
                 const virtualCtx = virtualCanvas.getContext('2d');
 
-                // Передаем sourceRenderCanvas вместо sourceImage
-                this.renderPiecewiseAffine(virtualCtx, this.sourcePoints, this.targetPoints, this.sourceRenderCanvas, this.previewCanvas.width, this.previewCanvas.height);
+                // Передаем this.sourceImage для деформации
+                this.renderPiecewiseAffine(virtualCtx, this.sourcePoints, this.targetPoints, this.sourceImage, this.previewCanvas.width, this.previewCanvas.height, 'preview');
 
                 this.currentDeformationData = {
                     sourcePoints: [...this.sourcePoints],
                     targetPoints: [...this.targetPoints],
-                    sourceImage: this.sourceImage, // Сохраняем оригинальное изображение для экспорта
-                    canvasWidth: this.previewCanvas.width, 
-                    canvasHeight: this.previewCanvas.height
+                    sourceImage: this.sourceImage,
+                    // Важно: сохраняем размеры канвасов, на которых были расставлены точки!
+                    sourceCanvasWidth: this.sourceCanvas.width,
+                    sourceCanvasHeight: this.sourceCanvas.height,
+                    previewCanvasWidth: this.previewCanvas.width,
+                    previewCanvasHeight: this.previewCanvas.height
                 };
 
                 this.previewCtx.drawImage(virtualCanvas, 0, 0);
@@ -579,10 +553,47 @@
                 document.getElementById('previewStatus').className = 'font-bold status-ready';
             }
 
-            renderPiecewiseAffine(ctx, srcPts, dstPts, imageOrCanvas, canvasWidth, canvasHeight) {
+            renderPiecewiseAffine(ctx, srcPts, dstPts, sourceImage, targetCanvasWidth, targetCanvasHeight, mode) {
                 if (srcPts.length < 3) return;
 
-                const flatPoints = srcPts.flatMap(p => [p.x, p.y]);
+                // Масштабируем точки, если режим не "preview" (для экспорта)
+                let actualSrcPts = srcPts;
+                let actualDstPts = dstPts;
+                let imageScale = 1;
+                let imageOffsetX = 0;
+                let imageOffsetY = 0;
+
+                // Если это режим "preview", нам нужно определить, как исходное изображение было масштабировано на sourceCanvas
+                // и применить это масштабирование к исходным точкам для Delaunay
+                if (mode === 'preview') {
+                    const scale = Math.min(
+                        this.sourceCanvas.width / sourceImage.width,
+                        this.sourceCanvas.height / sourceImage.height
+                    );
+                    const width = sourceImage.width * scale;
+                    const height = sourceImage.height * scale;
+                    const xOffset = (this.sourceCanvas.width - width) / 2;
+                    const yOffset = (this.sourceCanvas.height - height) / 2;
+                    
+                    imageScale = scale;
+                    imageOffsetX = xOffset;
+                    imageOffsetY = yOffset;
+
+                    // Создаем точки в координатах исходного изображения (без смещения канваса)
+                    // Это важно для Delaunator, чтобы он строил триангуляцию на реальных пропорциях изображения
+                    actualSrcPts = srcPts.map(p => ({
+                        x: (p.x - xOffset) / scale,
+                        y: (p.y - yOffset) / scale
+                    }));
+                } else { // Режим "export"
+                    // Для экспорта, нам нужно взять исходное изображение как есть,
+                    // а точки уже должны быть масштабированы для экспортного канваса
+                    // (это происходит в exportGobo перед вызовом)
+                    // Здесь imageScale = 1, т.к. sourceImage уже будет "вписано" в exportSourceRenderCanvas
+                    // и мы берем его как есть.
+                }
+
+                const flatPoints = actualSrcPts.flatMap(p => [p.x, p.y]);
                 const delaunay = Delaunator.from(flatPoints);
 
                 const triangles = [];
@@ -597,40 +608,46 @@
                 triangles.forEach(triangleIndices => {
                     const [i, j, k] = triangleIndices;
                     
-                    const srcTriangle = [
-                        srcPts[i],
-                        srcPts[j],
-                        srcPts[k]
+                    // Исходный треугольник (в координатах исходного изображения)
+                    const srcTriangleOriginal = [
+                        actualSrcPts[i],
+                        actualSrcPts[j],
+                        actualSrcPts[k]
                     ];
                     
-                    const dstTriangle = [
+                    // Деформированный треугольник (в координатах целевого канваса)
+                    const dstTriangleTarget = [
                         dstPts[i],
                         dstPts[j],
                         dstPts[k]
                     ];
                     
-                    this.warpTriangle(ctx, srcTriangle, dstTriangle, imageOrCanvas, canvasWidth, canvasHeight);
+                    this.warpTriangle(ctx, srcTriangleOriginal, dstTriangleTarget, sourceImage, imageScale, imageOffsetX, imageOffsetY);
                 });
             }
 
-            warpTriangle(ctx, srcTriangle, dstTriangle, imageOrCanvas, canvasWidth, canvasHeight) {
-                const matrix = this.getAffineMatrix(srcTriangle, dstTriangle);
+            warpTriangle(ctx, srcTriangleOriginal, dstTriangleTarget, sourceImage, imageScale, imageOffsetX, imageOffsetY) {
+                // Получаем аффинную матрицу, которая преобразует srcTriangleOriginal в dstTriangleTarget
+                const matrix = this.getAffineMatrix(srcTriangleOriginal, dstTriangleTarget);
                 if (!matrix) return;
 
                 ctx.save();
                 ctx.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
                 
+                // Обрезаем контекст по целевому треугольнику (в его деформированных координатах)
                 ctx.beginPath();
-                ctx.moveTo(srcTriangle[0].x, srcTriangle[0].y);
-                ctx.lineTo(srcTriangle[1].x, srcTriangle[1].y);
-                ctx.lineTo(srcTriangle[2].x, srcTriangle[2].y);
+                ctx.moveTo(dstTriangleTarget[0].x, dstTriangleTarget[0].y);
+                ctx.lineTo(dstTriangleTarget[1].x, dstTriangleTarget[1].y);
+                ctx.lineTo(dstTriangleTarget[2].x, dstTriangleTarget[2].y);
                 ctx.closePath();
-                ctx.clip();
-                
-                // Используем переданное imageOrCanvas, которое теперь является sourceRenderCanvas
-                if (imageOrCanvas) {
-                    ctx.drawImage(imageOrCanvas, 0, 0, canvasWidth, canvasHeight);
-                }
+                ctx.clip(); // Обрезает все последующие рисунки по этой области
+
+                // Рисуем исходное изображение
+                // Изображение рисуется с учетом масштаба и смещения, которые были применены при отображении на sourceCanvas
+                // Мы хотим, чтобы image.drawImage брал пиксели из исходника,
+                // но transform уже делает "растягивание"
+                // Поэтому, мы рисуем исходное изображение как есть, а матрица уже делает всю магию.
+                ctx.drawImage(sourceImage, imageOffsetX, imageOffsetY, sourceImage.width * imageScale, sourceImage.height * imageScale);
                 
                 ctx.restore();
             }
@@ -689,34 +706,46 @@
                 const sourcePointsPreview = this.currentDeformationData.sourcePoints;
                 const targetPointsPreview = this.currentDeformationData.targetPoints;
                 const sourceImageForExport = this.currentDeformationData.sourceImage;
-                const previewCanvasWidth = this.currentDeformationData.canvasWidth;
-                const previewCanvasHeight = this.currentDeformationData.canvasHeight;
+                const previewCanvasWidth = this.currentDeformationData.previewCanvasWidth;
+                const previewCanvasHeight = this.currentDeformationData.previewCanvasHeight;
+                const sourceCanvasWidth = this.currentDeformationData.sourceCanvasWidth;
+                const sourceCanvasHeight = this.currentDeformationData.sourceCanvasHeight;
 
-                // Создаем временный холст для рендеринга исходного изображения для экспорта
-                const exportSourceRenderCanvas = document.createElement('canvas');
-                exportSourceRenderCanvas.width = canvasSize;
-                exportSourceRenderCanvas.height = canvasSize;
-                const exportSourceRenderCtx = exportSourceRenderCanvas.getContext('2d');
 
-                // Рендерим исходное изображение на этот временный холст в масштабе экспорта
-                this.drawImageScaled(exportSourceRenderCtx, sourceImageForExport, canvasSize, canvasSize);
+                // --- РАСЧЕТ МАСШТАБОВ ДЛЯ ЭКСПОРТА ---
+                // 1. Масштаб, с которым исходное изображение было нарисовано на sourceCanvas
+                const sourceDisplayScale = Math.min(
+                    sourceCanvasWidth / sourceImageForExport.width,
+                    sourceCanvasHeight / sourceImageForExport.height
+                );
+                const sourceDisplayOffsetX = (sourceCanvasWidth - sourceImageForExport.width * sourceDisplayScale) / 2;
+                const sourceDisplayOffsetY = (sourceCanvasHeight - sourceImageForExport.height * sourceDisplayScale) / 2;
 
-                // Масштабируем точки из координат предпросмотра в координаты экспортного холста
-                const scaleX = canvasSize / previewCanvasWidth;
-                const scaleY = canvasSize / previewCanvasHeight;
-                
-                const scaledSourcePoints = sourcePointsPreview.map(p => ({
-                    x: p.x * scaleX,
-                    y: p.y * scaleY
+                // 2. Масштаб, который переводит координаты из previewCanvas в exportCanvas
+                const previewToExportScaleX = canvasSize / previewCanvasWidth;
+                const previewToExportScaleY = canvasSize / previewCanvasHeight;
+
+                // Масштабируем srcPoints (которые были в координатах sourceCanvas)
+                // в "оригинальные" координаты изображения, затем в координаты экспорта
+                const scaledSourcePointsForExport = sourcePointsPreview.map(p => ({
+                    // Переводим точки из координат sourceCanvas в координаты исходного изображения
+                    x: (p.x - sourceDisplayOffsetX) / sourceDisplayScale,
+                    y: (p.y - sourceDisplayOffsetY) / sourceDisplayScale
                 }));
                 
-                const scaledTargetPoints = targetPointsPreview.map(p => ({
-                    x: p.x * scaleX,
-                    y: p.y * scaleY
+                // Масштабируем targetPoints (которые были в координатах previewCanvas)
+                // в координаты exportCanvas
+                const scaledTargetPointsForExport = targetPointsPreview.map(p => ({
+                    x: p.x * previewToExportScaleX,
+                    y: p.y * previewToExportScaleY
                 }));
-                
-                // Применяем деформацию к экспортному холсту, используя exportSourceRenderCanvas
-                this.renderPiecewiseAffine(exportCtx, scaledSourcePoints, scaledTargetPoints, exportSourceRenderCanvas, canvasSize, canvasSize);
+
+                // Рендерим деформацию для экспорта
+                // imageScale, imageOffsetX, imageOffsetY для warpTriangle будут 1, 0, 0
+                // потому что Delaunator работает с "оригинальными" координатами изображения,
+                // а transform уже будет масштабировать в targetCanvas
+                this.renderPiecewiseAffine(exportCtx, scaledSourcePointsForExport, scaledTargetPointsForExport, 
+                                            sourceImageForExport, canvasSize, canvasSize, 'export');
 
                 // Обрезаем по кругу
                 exportCtx.globalCompositeOperation = 'destination-in';
