@@ -211,6 +211,10 @@
                 this.dragCanvas = null;
                 this.currentDeformationData = null; 
                 
+                // Добавляем временный холст для рендеринга исходного изображения перед деформацией
+                this.sourceRenderCanvas = document.createElement('canvas');
+                this.sourceRenderCtx = this.sourceRenderCanvas.getContext('2d');
+
                 this.initCanvases();
                 this.bindEvents();
             }
@@ -270,11 +274,9 @@
             bindCanvasEvents(canvas, type) {
                 const magnifier = type === 'source' ? this.sourceMagnifier : this.templateMagnifier;
                 
-                // Перемещаем лупу с учетом прокрутки и границ окна
                 canvas.addEventListener('mousemove', (e) => {
-                    // Используем e.clientX/Y для позиционирования лупы относительно окна
-                    magnifier.style.left = (e.clientX + 20) + 'px'; // Сдвиг вправо
-                    magnifier.style.top = (e.clientY - 60) + 'px'; // Сдвиг вверх
+                    magnifier.style.left = (e.clientX + 20) + 'px'; 
+                    magnifier.style.top = (e.clientY - 60) + 'px'; 
                     magnifier.style.display = 'block';
 
                     const rect = canvas.getBoundingClientRect();
@@ -282,7 +284,6 @@
                     const y = e.clientY - rect.top;
                     this.updateMagnifier(x, y, canvas, type);
 
-                    // Обработка перетаскивания точек
                     if (this.isDragging && this.dragCanvas === canvas) {
                         const points = type === 'source' ? this.sourcePoints : this.targetPoints;
                         if (this.dragPoint !== null && this.dragPoint < points.length) {
@@ -311,12 +312,17 @@
                 });
                 
                 canvas.addEventListener('mouseup', (e) => {
-                    this.handleMouseUp(e, canvas, type);
+                    if (this.isDragging) {
+                        this.isDragging = false;
+                        this.dragPoint = null;
+                        this.dragCanvas = null;
+                        canvas.style.cursor = 'crosshair';
+                        this.updatePreview(); // Обновляем предпросмотр после перетаскивания
+                    }
                 });
                 
                 canvas.addEventListener('click', (e) => {
-                    // Клик должен добавлять точку, только если не было перетаскивания
-                    if (!this.isDragging) { // Проверяем флаг isDragging
+                    if (!this.isDragging) { 
                         this.handleCanvasClick(e, canvas, type);
                     }
                 });
@@ -329,6 +335,11 @@
                     img.onload = () => {
                         if (type === 'source') {
                             this.sourceImage = img;
+                            // Настраиваем sourceRenderCanvas под размеры sourceCanvas
+                            this.sourceRenderCanvas.width = this.sourceCanvas.width;
+                            this.sourceRenderCanvas.height = this.sourceCanvas.height;
+                            // Рендерим исходное изображение на временный холст
+                            this.drawImageScaled(this.sourceRenderCtx, this.sourceImage, this.sourceRenderCanvas.width, this.sourceRenderCanvas.height);
                             this.drawSourceImage();
                         } else {
                             this.templateImage = img;
@@ -356,7 +367,11 @@
             }
 
             drawSourceImage() {
-                this.drawImageScaled(this.sourceCtx, this.sourceImage, this.sourceCanvas.width, this.sourceCanvas.height);
+                // Вместо sourceImage рисуем содержимое sourceRenderCanvas
+                this.sourceCtx.clearRect(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
+                if (this.sourceRenderCanvas) {
+                    this.sourceCtx.drawImage(this.sourceRenderCanvas, 0, 0);
+                }
                 this.drawPoints('source');
             }
 
@@ -372,7 +387,11 @@
                 
                 // Перерисовываем изображение, чтобы убрать старые точки
                 if (type === 'source') {
-                    this.drawImageScaled(ctx, this.sourceImage, canvas.width, canvas.height);
+                    // Используем sourceRenderCanvas для перерисовки фона
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    if (this.sourceRenderCanvas) {
+                        ctx.drawImage(this.sourceRenderCanvas, 0, 0);
+                    }
                 } else {
                     this.drawImageScaled(ctx, this.templateImage, canvas.width, canvas.height);
                 }
@@ -416,27 +435,27 @@
             updateMagnifier(x, y, canvas, type) {
                 const magnifier = type === 'source' ? this.sourceMagnifier : this.templateMagnifier;
                 const magCtx = type === 'source' ? this.sourceMagCtx : this.templateMagCtx;
-                const zoom = 3; // Коэффициент увеличения
-                const magSize = 116; // Размер внутреннего холста лупы
+                const zoom = 3; 
+                const magSize = 116; 
                 const halfMagSize = magSize / 2;
-                const sourceSize = 20; // Размер области источника для увеличения
+                const sourceSize = 20; 
                 
                 magCtx.clearRect(0, 0, magSize, magSize);
                 
-                // Вычисляем координаты источника на оригинальном холсте
                 const sx = x - sourceSize;
                 const sy = y - sourceSize;
                 
-                // Отрисовываем увеличенную область
+                // Важно: для лупы source-канваса, используем sourceRenderCanvas для увеличения
+                const imgToMagnify = (type === 'source' && this.sourceRenderCanvas) ? this.sourceRenderCanvas : canvas;
+
                 magCtx.drawImage(
-                    canvas, 
-                    sx, sy, // Координаты верхнего левого угла источника
-                    sourceSize * 2, sourceSize * 2, // Ширина и высота источника
-                    0, 0, // Координаты верхнего левого угла назначения
-                    magSize, magSize // Ширина и высота назначения (увеличено)
+                    imgToMagnify, 
+                    sx, sy, 
+                    sourceSize * 2, sourceSize * 2, 
+                    0, 0, 
+                    magSize, magSize 
                 );
                 
-                // Рисуем перекрестие в центре лупы
                 magCtx.strokeStyle = '#EF4444';
                 magCtx.lineWidth = 1;
                 magCtx.beginPath();
@@ -457,7 +476,7 @@
                 for (let i = 0; i < points.length; i++) {
                     const point = points[i];
                     const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
-                    if (distance < 15) { // Увеличил радиус захвата точки
+                    if (distance < 15) { 
                         this.isDragging = true;
                         this.dragPoint = i;
                         this.dragCanvas = canvas;
@@ -467,15 +486,17 @@
                 }
             }
 
+            // handleMouseUp теперь обновляет предпросмотр, чтобы деформация реагировала на отпускание точки
             handleMouseUp(e, canvas, type) {
                 if (this.isDragging) {
                     this.isDragging = false;
                     this.dragPoint = null;
                     this.dragCanvas = null;
                     canvas.style.cursor = 'crosshair';
+                    this.updatePreview(); // Обновляем предпросмотр после завершения перетаскивания
                 }
             }
-
+            
             handleCanvasClick(e, canvas, type) {
                 const rect = canvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
@@ -486,7 +507,7 @@
                 for (let point of points) {
                     const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
                     if (distance < 15) {
-                        return; // Не добавляем новую точку, если кликнули по существующей
+                        return; 
                     }
                 }
                 
@@ -518,12 +539,10 @@
             }
 
             updatePreview() {
-                // Очищаем предпросмотр
                 this.previewCtx.clearRect(0, 0, this.previewCanvas.width, this.previewCanvas.height);
                 
-                // Если шаблон загружен, рисуем его как фон
                 if (this.templateImage) {
-                    this.previewCtx.globalAlpha = 0.7; // Полупрозрачный фон
+                    this.previewCtx.globalAlpha = 0.7; 
                     this.drawImageScaled(this.previewCtx, this.templateImage, this.previewCanvas.width, this.previewCanvas.height);
                     this.previewCtx.globalAlpha = 1.0;
                 }
@@ -538,33 +557,31 @@
                     return;
                 }
 
-                // Создаем виртуальный холст для промежуточного рендеринга деформированного изображения
                 const virtualCanvas = document.createElement('canvas');
                 virtualCanvas.width = this.previewCanvas.width;
                 virtualCanvas.height = this.previewCanvas.height;
                 const virtualCtx = virtualCanvas.getContext('2d');
 
-                // Применяем деформацию к виртуальному холсту
-                this.renderPiecewiseAffine(virtualCtx, this.sourcePoints, this.targetPoints, this.sourceImage, this.previewCanvas.width, this.previewCanvas.height);
+                // Передаем sourceRenderCanvas вместо sourceImage
+                this.renderPiecewiseAffine(virtualCtx, this.sourcePoints, this.targetPoints, this.sourceRenderCanvas, this.previewCanvas.width, this.previewCanvas.height);
 
-                // Сохраняем данные деформации для экспорта
                 this.currentDeformationData = {
                     sourcePoints: [...this.sourcePoints],
                     targetPoints: [...this.targetPoints],
-                    sourceImage: this.sourceImage,
-                    canvasWidth: this.previewCanvas.width, // Сохраняем размеры холста предпросмотра
+                    sourceImage: this.sourceImage, // Сохраняем оригинальное изображение для экспорта
+                    canvasWidth: this.previewCanvas.width, 
                     canvasHeight: this.previewCanvas.height
                 };
 
-                // Накладываем результат на предпросмотр
                 this.previewCtx.drawImage(virtualCanvas, 0, 0);
 
                 document.getElementById('previewStatus').textContent = 'Готово к экспорту';
                 document.getElementById('previewStatus').className = 'font-bold status-ready';
             }
 
-            renderPiecewiseAffine(ctx, srcPts, dstPts, image, canvasWidth, canvasHeight) {
-                // Используем Delaunator для получения триангуляции
+            renderPiecewiseAffine(ctx, srcPts, dstPts, imageOrCanvas, canvasWidth, canvasHeight) {
+                if (srcPts.length < 3) return;
+
                 const flatPoints = srcPts.flatMap(p => [p.x, p.y]);
                 const delaunay = Delaunator.from(flatPoints);
 
@@ -592,11 +609,11 @@
                         dstPts[k]
                     ];
                     
-                    this.warpTriangle(ctx, srcTriangle, dstTriangle, image, canvasWidth, canvasHeight);
+                    this.warpTriangle(ctx, srcTriangle, dstTriangle, imageOrCanvas, canvasWidth, canvasHeight);
                 });
             }
 
-            warpTriangle(ctx, srcTriangle, dstTriangle, image, canvasWidth, canvasHeight) {
+            warpTriangle(ctx, srcTriangle, dstTriangle, imageOrCanvas, canvasWidth, canvasHeight) {
                 const matrix = this.getAffineMatrix(srcTriangle, dstTriangle);
                 if (!matrix) return;
 
@@ -610,19 +627,9 @@
                 ctx.closePath();
                 ctx.clip();
                 
-                // Масштабируем исходное изображение для рисования на холсте
-                if (image) {
-                    // Рассчитываем масштаб, чтобы изображение вписалось в текущий холст
-                    const scale = Math.min(
-                        canvasWidth / image.width,
-                        canvasHeight / image.height
-                    );
-                    const width = image.width * scale;
-                    const height = image.height * scale;
-                    const x = (canvasWidth - width) / 2;
-                    const y = (canvasHeight - height) / 2;
-                    
-                    ctx.drawImage(image, x, y, width, height);
+                // Используем переданное imageOrCanvas, которое теперь является sourceRenderCanvas
+                if (imageOrCanvas) {
+                    ctx.drawImage(imageOrCanvas, 0, 0, canvasWidth, canvasHeight);
                 }
                 
                 ctx.restore();
@@ -668,8 +675,7 @@
                     return;
                 }
                 
-                // Рассчитываем размер экспортного холста (в пикселях)
-                const sizeInInches = diameter / 25.4; // мм в дюймы
+                const sizeInInches = diameter / 25.4; 
                 const canvasSize = Math.round(sizeInInches * dpi);
                 
                 const exportCanvas = document.createElement('canvas');
@@ -677,16 +683,23 @@
                 exportCanvas.height = canvasSize;
                 const exportCtx = exportCanvas.getContext('2d');
                 
-                // Заливаем фон черным (для гобо обычно нужен непрозрачный фон)
                 exportCtx.fillStyle = 'black';
                 exportCtx.fillRect(0, 0, canvasSize, canvasSize);
 
-                // Сохраняем исходные точки и изображения из currentDeformationData
                 const sourcePointsPreview = this.currentDeformationData.sourcePoints;
                 const targetPointsPreview = this.currentDeformationData.targetPoints;
                 const sourceImageForExport = this.currentDeformationData.sourceImage;
                 const previewCanvasWidth = this.currentDeformationData.canvasWidth;
                 const previewCanvasHeight = this.currentDeformationData.canvasHeight;
+
+                // Создаем временный холст для рендеринга исходного изображения для экспорта
+                const exportSourceRenderCanvas = document.createElement('canvas');
+                exportSourceRenderCanvas.width = canvasSize;
+                exportSourceRenderCanvas.height = canvasSize;
+                const exportSourceRenderCtx = exportSourceRenderCanvas.getContext('2d');
+
+                // Рендерим исходное изображение на этот временный холст в масштабе экспорта
+                this.drawImageScaled(exportSourceRenderCtx, sourceImageForExport, canvasSize, canvasSize);
 
                 // Масштабируем точки из координат предпросмотра в координаты экспортного холста
                 const scaleX = canvasSize / previewCanvasWidth;
@@ -702,17 +715,16 @@
                     y: p.y * scaleY
                 }));
                 
-                // Применяем деформацию к экспортному холсту
-                this.renderPiecewiseAffine(exportCtx, scaledSourcePoints, scaledTargetPoints, sourceImageForExport, canvasSize, canvasSize);
+                // Применяем деформацию к экспортному холсту, используя exportSourceRenderCanvas
+                this.renderPiecewiseAffine(exportCtx, scaledSourcePoints, scaledTargetPoints, exportSourceRenderCanvas, canvasSize, canvasSize);
 
                 // Обрезаем по кругу
                 exportCtx.globalCompositeOperation = 'destination-in';
                 exportCtx.beginPath();
                 exportCtx.arc(canvasSize / 2, canvasSize / 2, canvasSize / 2, 0, Math.PI * 2);
                 exportCtx.fill();
-                exportCtx.globalCompositeOperation = 'source-over'; // Сброс режима наложения
+                exportCtx.globalCompositeOperation = 'source-over'; 
 
-                // Скачиваем файл
                 exportCanvas.toBlob((blob) => {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
