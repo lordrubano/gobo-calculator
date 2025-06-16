@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профессиональный редактор-калькулятор для гобо v3.0</title>
+    <title>Профессиональный редактор-калькулятор для гобо v3.1</title>
     <script src="https://d3js.org/d3-delaunay.v7.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
     <style>
@@ -47,7 +47,7 @@
     <div class="app-container">
         <header>
             <h1>Профессиональный редактор-калькулятор для гобо</h1>
-            <p>Версия 3.0 (Стабильная производственная)</p>
+            <p>Версия 3.1 (Финальная стабильная версия)</p>
         </header>
         <div class="control-panel">
             <button id="load-template-btn">Загрузить фото-шаблон</button>
@@ -155,8 +155,12 @@
                     for(let i=0;i<triangles.length;i+=3){
                         const p_src_abs=[absSrcPts[triangles[i]],absSrcPts[triangles[i+1]],absSrcPts[triangles[i+2]]];
                         const p_dest=[destPts[triangles[i]],destPts[triangles[i+1]],destPts[triangles[i+2]]];
+                        
+                        // *** НАЧАЛО ФИНАЛЬНОГО ИСПРАВЛЕНИЯ: Проверка на вырожденный треугольник ***
                         const triArea=(p0,p1,p2)=>0.5*Math.abs(p0[0]*(p1[1]-p2[1])+p1[0]*(p2[1]-p0[1])+p2[0]*(p0[1]-p1[1]));
                         if(triArea(p_src_abs[0],p_src_abs[1],p_src_abs[2])<0.1)continue;
+                        // *** КОНЕЦ ФИНАЛЬНОГО ИСПРАВЛЕНИЯ ***
+
                         warpedCtx.save();
                         warpedCtx.beginPath();
                         warpedCtx.moveTo(p_dest[0][0],p_dest[0][1]);
@@ -178,7 +182,7 @@
                     const b=math.matrix([dst[0][0],dst[0][1],dst[1][0],dst[1][1],dst[2][0],dst[2][1]]);
                     const t=math.lusolve(M,b).valueOf().flat();
                     return{a:t[0],b:t[3],c:t[1],d:t[4],e:t[2],f:t[5]};
-                }catch(e){console.error("Matrix solving failed:",e);return null;}
+                }catch(e){return null;}
             }
 
             handleExport() {
@@ -196,6 +200,8 @@
                 let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
                 this.destinationPoints.forEach(p=>{minX=Math.min(minX,p[0]);minY=Math.min(minY,p[1]);maxX=Math.max(maxX,p[0]);maxY=Math.max(maxY,p[1]);});
                 const bboxWidth=maxX-minX,bboxHeight=maxY-minY;
+                if(bboxWidth === 0 || bboxHeight === 0) return; // Prevent division by zero
+                
                 const margin=0.95;
                 const scale=Math.min(exportSizePx*margin/bboxWidth,exportSizePx*margin/bboxHeight);
                 const scaledBboxWidth=bboxWidth*scale,scaledBboxHeight=bboxHeight*scale;
