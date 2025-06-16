@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профессиональный редактор-калькулятор для гобо v1.7 (стабильная)</title>
+    <title>Профессиональный редактор-калькулятор для гобо v1.8 (стабильная)</title>
     <script src="https://d3js.org/d3-delaunay.v7.min.js"></script>
     <style>
         :root {
@@ -77,6 +77,7 @@
         .control-panel button:disabled {
             background-color: #666;
             cursor: not-allowed;
+            opacity: 0.7;
         }
 
         .main-content {
@@ -154,7 +155,7 @@
     <div class="app-container">
         <header>
             <h1>Профессиональный редактор-калькулятор для гобо</h1>
-            <p>Версия 1.7 (стабильная)</p>
+            <p>Версия 1.8 (финальная, стабильная)</p>
         </header>
 
         <div class="control-panel">
@@ -233,7 +234,7 @@
             let templateImage = null;
             let sourcePoints = [];
             let destinationPoints = [];
-            let draggingPointInfo = null; // { point, index, array }
+            let draggingPointInfo = null;
 
             // --- DOM элементы ---
             const sourceCanvas = document.getElementById('source-canvas');
@@ -279,20 +280,18 @@
             };
 
             const loadImage = (e, isTemplate) => {
-                const file = e.target.files[0];
-                if (!file) return;
+                const file = e.target.files[0]; if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     const img = new Image();
                     img.onload = () => {
-                        if (isTemplate) templateImage = img;
-                        else sourceImage = img;
+                        if (isTemplate) templateImage = img; else sourceImage = img;
                         renderAll();
                     };
                     img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
-                e.target.value = ''; // Reset input to allow reloading the same file
+                e.target.value = '';
             };
 
             // --- Логика точек и интерактивности ---
@@ -305,17 +304,10 @@
                     const rect = canvas.getBoundingClientRect();
                     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
                 };
-
                 const coords = getCoords(e);
-
                 switch (type) {
-                    case 'enter':
-                        loupe.style.display = 'block';
-                        break;
-                    case 'leave':
-                        loupe.style.display = 'none';
-                        draggingPointInfo = null; // Stop dragging if mouse leaves
-                        break;
+                    case 'enter': loupe.style.display = 'block'; break;
+                    case 'leave': loupe.style.display = 'none'; draggingPointInfo = null; break;
                     case 'move':
                         if (coords) updateLoupe(e, canvas);
                         if (draggingPointInfo) {
@@ -327,20 +319,14 @@
                     case 'down':
                         const pointIndex = getPointAt(coords, points);
                         if (pointIndex !== -1) {
-                            draggingPointInfo = { point: points[pointIndex], index: pointIndex, array: points };
+                            draggingPointInfo = { point: points[pointIndex], index: pointIndex };
                         } else {
-                            // Логика добавления новой точки
-                            if (canvas === sourceCanvas) {
-                                points.push([coords.x, coords.y]);
-                            } else if (canvas === templateCanvas && points.length < sourcePoints.length) {
-                                points.push([coords.x, coords.y]);
-                            }
+                            if (canvas === sourceCanvas) points.push([coords.x, coords.y]);
+                            else if (canvas === templateCanvas && points.length < sourcePoints.length) points.push([coords.x, coords.y]);
                             renderAll();
                         }
                         break;
-                    case 'up':
-                        draggingPointInfo = null;
-                        break;
+                    case 'up': draggingPointInfo = null; break;
                 }
             };
             
@@ -373,17 +359,10 @@
                 if (img) {
                     const canvasRatio = canvas.width / canvas.height;
                     const imgRatio = img.naturalWidth / img.naturalHeight;
-                    let drawWidth = canvas.width, drawHeight = canvas.height;
-                    let offsetX = 0, offsetY = 0;
-
-                    if (imgRatio > canvasRatio) {
-                        drawHeight = canvas.width / imgRatio;
-                        offsetY = (canvas.height - drawHeight) / 2;
-                    } else {
-                        drawWidth = canvas.height * imgRatio;
-                        offsetX = (canvas.width - drawWidth) / 2;
-                    }
-                    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                    let dw = canvas.width, dh = canvas.height, ox = 0, oy = 0;
+                    if (imgRatio > canvasRatio) { dh = canvas.width / imgRatio; oy = (canvas.height - dh) / 2; } 
+                    else { dw = canvas.height * imgRatio; ox = (canvas.width - dw) / 2; }
+                    ctx.drawImage(img, ox, oy, dw, dh);
                 }
                 points.forEach((p, i) => drawPoint(ctx, p, i + 1));
             };
@@ -393,27 +372,21 @@
                 ctx.arc(p[0], p[1], 5, 0, 2 * Math.PI);
                 ctx.fillStyle = 'rgba(138, 120, 255, 0.9)';
                 ctx.fill();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 1;
-                ctx.stroke();
-
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.stroke();
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 10px sans-serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(number, p[0], p[1]);
             };
             
             const updateLoupe = (e, canvas) => {
                 const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
+                const x = e.clientX - rect.left, y = e.clientY - rect.top;
                 const zoom = 4;
                 loupe.style.left = `${e.pageX - 50}px`;
                 loupe.style.top = `${e.pageY - 50}px`;
                 loupe.style.backgroundImage = `url(${canvas.toDataURL()})`;
-                loupe.style.backgroundSize = `${canvas.width * zoom}px ${canvas.height * zoom}px`;
-                loupe.style.backgroundPosition = `-${x * zoom - 50}px -${y * zoom - 50}px`;
+                loupe.style.backgroundSize = `${canvas.width*zoom}px ${canvas.height*zoom}px`;
+                loupe.style.backgroundPosition = `-${x*zoom-50}px -${y*zoom-50}px`;
             };
 
             const updateStatus = () => {
@@ -427,7 +400,7 @@
                     statusText.className = 'status ready';
                     exportBtn.disabled = false;
                 } else if (sourcePoints.length !== destinationPoints.length) {
-                    statusText.textContent = `Синхронизируйте точки (${sourcePoints.length}/${destinationPoints.length})`;
+                    statusText.textContent = `Синхронизация (${sourcePoints.length}/${destinationPoints.length})`;
                     statusText.className = 'status mismatch';
                     exportBtn.disabled = true;
                 } else {
@@ -446,17 +419,16 @@
                 const canWarp = sourceImage && sourcePoints.length >= 4 && sourcePoints.length === destinationPoints.length;
                 if (!canWarp) return;
 
-                const warpCanvas = getWarpedCanvas(sourceCanvas, templateCanvas, sourcePoints, destinationPoints);
-                if(warpCanvas) {
-                    previewCtx.drawImage(warpCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                const warpedCanvas = getWarpedCanvas(sourceCanvas, templateCanvas, sourcePoints, destinationPoints);
+                if(warpedCanvas) {
+                    previewCtx.drawImage(warpedCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
                 }
             };
 
-            const getWarpedCanvas = (srcCanvas, destCanvasSizeRef, srcPoints, destPoints) => {
-                // Создаем временный холст нужного размера для отрисовки деформации
+            const getWarpedCanvas = (srcCanvas, destCanvasRef, srcPoints, destPoints) => {
                 const warpedCanvas = document.createElement('canvas');
-                warpedCanvas.width = destCanvasSizeRef.width;
-                warpedCanvas.height = destCanvasSizeRef.height;
+                warpedCanvas.width = destCanvasRef.width;
+                warpedCanvas.height = destCanvasRef.height;
                 const warpedCtx = warpedCanvas.getContext('2d');
                 
                 try {
@@ -467,6 +439,13 @@
                         const p_src = [ srcPoints[triangles[i]], srcPoints[triangles[i+1]], srcPoints[triangles[i+2]] ];
                         const p_dest = [ destPoints[triangles[i]], destPoints[triangles[i+1]], destPoints[triangles[i+2]] ];
                         
+                        // *** НАЧАЛО ИСПРАВЛЕНИЯ: ПРОВЕРКА НА ВЫРОЖДЕННЫЙ ТРЕУГОЛЬНИК ***
+                        const triArea = (p0, p1, p2) => 0.5 * Math.abs(p0[0]*(p1[1]-p2[1]) + p1[0]*(p2[1]-p0[1]) + p2[0]*(p0[1]-p1[1]));
+                        if (triArea(p_src[0], p_src[1], p_src[2]) < 0.1) {
+                            continue; // Пропускаем слишком маленькие/вырожденные треугольники
+                        }
+                        // *** КОНЕЦ ИСПРАВЛЕНИЯ ***
+
                         warpedCtx.save();
                         warpedCtx.beginPath();
                         warpedCtx.moveTo(p_dest[0][0], p_dest[0][1]);
@@ -491,8 +470,6 @@
                 const [ [x0, y0], [x1, y1], [x2, y2] ] = srcTri;
                 const [ [u0, v0], [u1, v1], [u2, v2] ] = dstTri;
                 
-                // Решение системы линейных уравнений для матрицы аффинного преобразования
-                // M * t = b, где t = [a, c, e, b, d, f]
                 const M = [
                     [x0, y0, 1, 0, 0, 0], [0, 0, 0, x0, y0, 1],
                     [x1, y1, 1, 0, 0, 0], [0, 0, 0, x1, y1, 1],
@@ -524,13 +501,11 @@
                 exportCanvas.height = exportSizePx;
                 const exportCtx = exportCanvas.getContext('2d');
                 
-                // 1. Рисуем черную круглую маску
                 exportCtx.fillStyle = 'black';
                 exportCtx.beginPath();
                 exportCtx.arc(exportSizePx / 2, exportSizePx / 2, exportSizePx / 2, 0, 2 * Math.PI);
                 exportCtx.fill();
 
-                // 2. Рассчитываем и рисуем деформированное изображение
                 const warpedCanvas = getWarpedCanvas(sourceCanvas, {width: exportSizePx, height: exportSizePx}, sourcePoints, destinationPoints.map(p => [
                     (p[0] / templateCanvas.width) * exportSizePx,
                     (p[1] / templateCanvas.height) * exportSizePx
@@ -540,7 +515,6 @@
                     exportCtx.drawImage(warpedCanvas, 0, 0);
                 }
 
-                // 3. Скачиваем файл
                 const link = document.createElement('a');
                 link.download = `gobo_export_${diameter}mm_${dpi}dpi.png`;
                 link.href = exportCanvas.toDataURL('image/png');
@@ -548,35 +522,26 @@
                 hideExportModal();
             };
             
-            // Надежная функция для решения СЛАУ методом Гаусса
             function solve(A, b) {
                 const n = A.length;
                 for (let i = 0; i < n; i++) {
                     let maxEl = Math.abs(A[i][i]);
                     let maxRow = i;
-                    for (let k = i + 1; k < n; k++) {
-                        if (Math.abs(A[k][i]) > maxEl) {
-                            maxEl = Math.abs(A[k][i]);
-                            maxRow = k;
-                        }
-                    }
+                    for (let k = i + 1; k < n; k++) { if (Math.abs(A[k][i]) > maxEl) { maxEl = Math.abs(A[k][i]); maxRow = k; } }
                     [A[i], A[maxRow]] = [A[maxRow], A[i]];
                     [b[i], b[maxRow]] = [b[maxRow], b[i]];
                     for (let k = i + 1; k < n; k++) {
+                        if(A[i][i] === 0) return null; // Fallback for singular matrix
                         const c = -A[k][i] / A[i][i];
-                        for (let j = i; j < n; j++) {
-                            if (i === j) A[k][j] = 0;
-                            else A[k][j] += c * A[i][j];
-                        }
+                        for (let j = i; j < n; j++) { if (i === j) A[k][j] = 0; else A[k][j] += c * A[i][j]; }
                         b[k] += c * b[i];
                     }
                 }
                 const x = new Array(n);
                 for (let i = n - 1; i > -1; i--) {
+                    if(A[i][i] === 0) return null; // Fallback for singular matrix
                     x[i] = b[i] / A[i][i];
-                    for (let k = i - 1; k > -1; k--) {
-                        b[k] -= A[k][i] * x[i];
-                    }
+                    for (let k = i - 1; k > -1; k--) { b[k] -= A[k][i] * x[i]; }
                 }
                 return x;
             }
