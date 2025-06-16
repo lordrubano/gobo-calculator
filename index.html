@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Профессиональный редактор-калькулятор для гобо v1.6</title>
+    <title>Профессиональный редактор-калькулятор для гобо v1.7 (стабильная)</title>
     <script src="https://d3js.org/d3-delaunay.v7.min.js"></script>
     <style>
         :root {
@@ -14,6 +14,7 @@
             --border-color: #44475a;
             --success-color: #50fa7b;
             --danger-color: #ff5555;
+            --warning-color: #f1fa8c;
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
         }
 
@@ -72,6 +73,11 @@
         .control-panel button:hover {
             opacity: 0.9;
         }
+        
+        .control-panel button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
 
         .main-content {
             display: grid;
@@ -100,7 +106,7 @@
             position: relative;
             width: 100%;
             padding-top: 75%; /* Aspect ratio 4:3 */
-            background-color: #1a1a1a;
+            background-color: #111;
             border-radius: 4px;
             overflow: hidden;
         }
@@ -119,130 +125,43 @@
             padding-top: 10px;
             text-align: center;
             color: #9a9a9a;
+            height: 20px;
         }
         
-        .panel-footer .status.ready {
-            color: var(--success-color);
-            font-weight: bold;
-        }
+        .panel-footer .status.ready { color: var(--success-color); font-weight: bold; }
+        .panel-footer .status.mismatch { color: var(--warning-color); font-weight: bold; }
         
-        .instructions {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-        }
-        
-        .instructions h3 {
-            margin-top: 0;
-        }
-        
-        .instructions ol {
-            padding-left: 20px;
-        }
+        .instructions { background-color: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; }
+        .instructions h3 { margin-top: 0; }
+        .instructions ol { padding-left: 20px; }
 
-        .loupe {
-            position: absolute;
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            border: 2px solid var(--primary-color);
-            pointer-events: none;
-            display: none;
-            background-repeat: no-repeat;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            z-index: 100;
-        }
-        
-        .loupe::before, .loupe::after {
-            content: '';
-            position: absolute;
-            background-color: var(--danger-color);
-            z-index: 101;
-        }
-        .loupe::before { /* horizontal line */
-            top: 50%;
-            left: 0;
-            width: 100%;
-            height: 1px;
-            margin-top: -0.5px;
-        }
-        .loupe::after { /* vertical line */
-            left: 50%;
-            top: 0;
-            height: 100%;
-            width: 1px;
-            margin-left: -0.5px;
-        }
+        .loupe { position: absolute; width: 100px; height: 100px; border-radius: 50%; border: 2px solid var(--primary-color); pointer-events: none; display: none; background-repeat: no-repeat; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 100; }
+        .loupe::before, .loupe::after { content: ''; position: absolute; background-color: var(--danger-color); z-index: 101; }
+        .loupe::before { top: 50%; left: 0; width: 100%; height: 1px; margin-top: -0.5px; }
+        .loupe::after { left: 50%; top: 0; height: 100%; width: 1px; margin-left: -0.5px; }
 
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background-color: var(--panel-bg);
-            padding: 30px;
-            border-radius: 8px;
-            width: 300px;
-            text-align: center;
-        }
-        
-        .modal-content h2 {
-            margin-top: 0;
-        }
-        
-        .modal-content .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        
-        .modal-content label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        
-        .modal-content input {
-            width: 100%;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid var(--border-color);
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            box-sizing: border-box;
-        }
-
-        .modal-buttons {
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .file-input {
-            display: none;
-        }
-        
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background-color: var(--panel-bg); padding: 30px; border-radius: 8px; width: 300px; text-align: center; }
+        .modal-content h2 { margin-top: 0; }
+        .modal-content .form-group { margin-bottom: 20px; text-align: left; }
+        .modal-content label { display: block; margin-bottom: 5px; }
+        .modal-content input { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background-color: var(--bg-color); color: var(--text-color); box-sizing: border-box; }
+        .modal-buttons { display: flex; justify-content: space-between; }
+        .file-input { display: none; }
     </style>
 </head>
 <body>
     <div class="app-container">
         <header>
             <h1>Профессиональный редактор-калькулятор для гобо</h1>
-            <p>Версия 1.6 (финальная) - Кусочно-аффинное преобразование с экранной лупой и интерактивным редактированием</p>
+            <p>Версия 1.7 (стабильная)</p>
         </header>
 
         <div class="control-panel">
             <button id="load-template-btn">Загрузить фото-шаблон</button>
             <button id="load-source-btn">Загрузить изображение</button>
             <button id="clear-points-btn" class="danger">Очистить точки</button>
-            <button id="export-btn">Экспорт</button>
+            <button id="export-btn" disabled>Экспорт</button>
         </div>
         
         <input type="file" id="template-file-input" class="file-input" accept="image/*">
@@ -273,7 +192,7 @@
         </div>
 
         <div class="instructions">
-            <h3>Инструкция по использованию:</h3>
+             <h3>Инструкция по использованию:</h3>
             <ol>
                 <li>Загрузите фото-шаблон с размеченными точками.</li>
                 <li>Загрузите исходное изображение для деформации.</li>
@@ -294,11 +213,11 @@
             <h2>Параметры экспорта</h2>
             <div class="form-group">
                 <label for="gobo-diameter">Диаметр гобо (мм)</label>
-                <input type="number" id="gobo-diameter" value="37.5">
+                <input type="number" id="gobo-diameter" value="37.5" step="0.1">
             </div>
             <div class="form-group">
                 <label for="gobo-dpi">Разрешение (DPI)</label>
-                <input type="number" id="gobo-dpi" value="2700">
+                <input type="number" id="gobo-dpi" value="2700" step="100">
             </div>
             <div class="modal-buttons">
                 <button id="cancel-export-btn" class="danger">Отмена</button>
@@ -308,18 +227,13 @@
     </div>
 
     <script>
-        // Это основной скрипт приложения. Он реализует всю логику, описанную в ТЗ 1.6.
-        // Для математики используется библиотека d3-delaunay для триангуляции.
-        // Вся обработка происходит на стороне клиента, в браузере.
-
         document.addEventListener('DOMContentLoaded', () => {
             // --- Состояние приложения ---
             let sourceImage = null;
             let templateImage = null;
             let sourcePoints = [];
             let destinationPoints = [];
-            let activeCanvas = null;
-            let draggingPoint = null;
+            let draggingPointInfo = null; // { point, index, array }
 
             // --- DOM элементы ---
             const sourceCanvas = document.getElementById('source-canvas');
@@ -330,6 +244,7 @@
             const previewCtx = previewCanvas.getContext('2d');
             
             const loupe = document.getElementById('loupe');
+            const exportBtn = document.getElementById('export-btn');
 
             // --- Инициализация ---
             const init = () => {
@@ -341,14 +256,14 @@
                 document.getElementById('template-file-input').addEventListener('change', (e) => loadImage(e, true));
                 document.getElementById('source-file-input').addEventListener('change', (e) => loadImage(e, false));
                 document.getElementById('clear-points-btn').addEventListener('click', clearPoints);
-                document.getElementById('export-btn').addEventListener('click', showExportModal);
+                exportBtn.addEventListener('click', showExportModal);
                 document.getElementById('cancel-export-btn').addEventListener('click', hideExportModal);
                 document.getElementById('confirm-export-btn').addEventListener('click', handleExport);
             };
 
             const setupCanvas = (canvas, eventHandler) => {
-                const container = canvas.parentElement;
                 const resize = () => {
+                    const container = canvas.parentElement;
                     canvas.width = container.clientWidth;
                     canvas.height = container.clientHeight;
                     renderAll();
@@ -358,8 +273,8 @@
                 
                 canvas.addEventListener('mousedown', (e) => eventHandler(e, 'down'));
                 canvas.addEventListener('mousemove', (e) => eventHandler(e, 'move'));
-                canvas.addEventListener('mouseup', (e) => eventHandler(e, 'up'));
-                canvas.addEventListener('mouseleave', (e) => eventHandler(e, 'leave'));
+                canvas.addEventListener('mouseup', () => eventHandler(null, 'up'));
+                canvas.addEventListener('mouseleave', () => eventHandler(null, 'leave'));
                 canvas.addEventListener('mouseenter', (e) => eventHandler(e, 'enter'));
             };
 
@@ -370,117 +285,120 @@
                 reader.onload = (event) => {
                     const img = new Image();
                     img.onload = () => {
-                        if (isTemplate) {
-                            templateImage = img;
-                        } else {
-                            sourceImage = img;
-                        }
+                        if (isTemplate) templateImage = img;
+                        else sourceImage = img;
                         renderAll();
                     };
                     img.src = event.target.result;
                 };
                 reader.readAsDataURL(file);
+                e.target.value = ''; // Reset input to allow reloading the same file
             };
 
             // --- Логика точек и интерактивности ---
+            const handleSourceCanvasEvent = (e, type) => handleCanvasEvent(e, type, sourceCanvas, sourcePoints);
+            const handleTemplateCanvasEvent = (e, type) => handleCanvasEvent(e, type, templateCanvas, destinationPoints);
 
-            const handleSourceCanvasEvent = (e, type) => {
-                handleCanvasEvent(e, type, sourceCanvas, sourcePoints, 'source');
-            };
+            const handleCanvasEvent = (e, type, canvas, points) => {
+                const getCoords = (event) => {
+                    if (!event) return null;
+                    const rect = canvas.getBoundingClientRect();
+                    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+                };
 
-            const handleTemplateCanvasEvent = (e, type) => {
-                handleCanvasEvent(e, type, templateCanvas, destinationPoints, 'template');
-            };
+                const coords = getCoords(e);
 
-            const handleCanvasEvent = (e, type, canvas, points, canvasName) => {
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-
-                if (type === 'enter') loupe.style.display = 'block';
-                if (type === 'leave') {
-                    loupe.style.display = 'none';
-                    if (draggingPoint) { // Stop dragging if mouse leaves canvas
-                        draggingPoint = null;
-                    }
-                }
-                
-                if(type === 'move') {
-                    updateLoupe(e, canvas);
-                    if (draggingPoint) {
-                        draggingPoint.point[0] = x;
-                        draggingPoint.point[1] = y;
-                        renderAll();
-                    }
-                }
-
-                if (type === 'down') {
-                    const pointIndex = getPointAt(x, y, points);
-                    if (pointIndex !== -1) {
-                        draggingPoint = { index: pointIndex, point: points[pointIndex], canvasName };
-                    } else {
-                        if (canvasName === 'source') {
-                            if (sourcePoints.length >= destinationPoints.length) {
-                                sourcePoints.push([x, y]);
-                            }
-                        } else { // template
-                            if (destinationPoints.length < sourcePoints.length) {
-                                destinationPoints.push([x, y]);
-                            }
+                switch (type) {
+                    case 'enter':
+                        loupe.style.display = 'block';
+                        break;
+                    case 'leave':
+                        loupe.style.display = 'none';
+                        draggingPointInfo = null; // Stop dragging if mouse leaves
+                        break;
+                    case 'move':
+                        if (coords) updateLoupe(e, canvas);
+                        if (draggingPointInfo) {
+                            draggingPointInfo.point[0] = coords.x;
+                            draggingPointInfo.point[1] = coords.y;
+                            renderAll();
                         }
-                        renderAll();
-                    }
-                }
-                
-                if (type === 'up') {
-                    draggingPoint = null;
+                        break;
+                    case 'down':
+                        const pointIndex = getPointAt(coords, points);
+                        if (pointIndex !== -1) {
+                            draggingPointInfo = { point: points[pointIndex], index: pointIndex, array: points };
+                        } else {
+                            // Логика добавления новой точки
+                            if (canvas === sourceCanvas) {
+                                points.push([coords.x, coords.y]);
+                            } else if (canvas === templateCanvas && points.length < sourcePoints.length) {
+                                points.push([coords.x, coords.y]);
+                            }
+                            renderAll();
+                        }
+                        break;
+                    case 'up':
+                        draggingPointInfo = null;
+                        break;
                 }
             };
-
-            const getPointAt = (x, y, points) => {
+            
+            const getPointAt = (coords, points) => {
                 for (let i = 0; i < points.length; i++) {
                     const p = points[i];
-                    const dist = Math.sqrt((p[0] - x) ** 2 + (p[1] - y) ** 2);
+                    const dist = Math.sqrt((p[0] - coords.x) ** 2 + (p[1] - coords.y) ** 2);
                     if (dist < 10) return i;
                 }
                 return -1;
             };
 
             const clearPoints = () => {
-                sourcePoints = [];
-                destinationPoints = [];
+                sourcePoints.length = 0;
+                destinationPoints.length = 0;
                 renderAll();
             };
             
             // --- Логика отрисовки ---
-            
             const renderAll = () => {
-                drawCanvas(sourceCtx, sourceCanvas, sourceImage, sourcePoints);
-                drawCanvas(templateCtx, templateCanvas, templateImage, destinationPoints);
+                drawCanvasWithAspectRatio(sourceCtx, sourceCanvas, sourceImage, sourcePoints);
+                drawCanvasWithAspectRatio(templateCtx, templateCanvas, templateImage, destinationPoints);
                 updatePreview();
                 updateStatus();
             };
 
-            const drawCanvas = (ctx, canvas, img, points) => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const drawCanvasWithAspectRatio = (ctx, canvas, img, points) => {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
                 if (img) {
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const canvasRatio = canvas.width / canvas.height;
+                    const imgRatio = img.naturalWidth / img.naturalHeight;
+                    let drawWidth = canvas.width, drawHeight = canvas.height;
+                    let offsetX = 0, offsetY = 0;
+
+                    if (imgRatio > canvasRatio) {
+                        drawHeight = canvas.width / imgRatio;
+                        offsetY = (canvas.height - drawHeight) / 2;
+                    } else {
+                        drawWidth = canvas.height * imgRatio;
+                        offsetX = (canvas.width - drawWidth) / 2;
+                    }
+                    ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
                 }
-                points.forEach((p, i) => {
-                    drawPoint(ctx, p, i + 1);
-                });
+                points.forEach((p, i) => drawPoint(ctx, p, i + 1));
             };
 
             const drawPoint = (ctx, p, number) => {
                 ctx.beginPath();
                 ctx.arc(p[0], p[1], 5, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(138, 120, 255, 0.8)';
+                ctx.fillStyle = 'rgba(138, 120, 255, 0.9)';
                 ctx.fill();
                 ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
                 ctx.stroke();
 
                 ctx.fillStyle = '#fff';
-                ctx.font = '10px sans-serif';
+                ctx.font = 'bold 10px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(number, p[0], p[1]);
@@ -490,7 +408,6 @@
                 const rect = canvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
-
                 const zoom = 4;
                 loupe.style.left = `${e.pageX - 50}px`;
                 loupe.style.top = `${e.pageY - 50}px`;
@@ -503,88 +420,70 @@
                 document.getElementById('source-points-count').textContent = sourcePoints.length;
                 document.getElementById('dest-points-count').textContent = destinationPoints.length;
                 const statusText = document.getElementById('status-text');
-                if (sourcePoints.length >= 4 && sourcePoints.length === destinationPoints.length) {
+                const canWarp = sourcePoints.length >= 4 && sourcePoints.length === destinationPoints.length;
+                
+                if (canWarp) {
                     statusText.textContent = 'Готово к экспорту';
                     statusText.className = 'status ready';
+                    exportBtn.disabled = false;
+                } else if (sourcePoints.length !== destinationPoints.length) {
+                    statusText.textContent = `Синхронизируйте точки (${sourcePoints.length}/${destinationPoints.length})`;
+                    statusText.className = 'status mismatch';
+                    exportBtn.disabled = true;
                 } else {
                     statusText.textContent = 'Расставьте точки';
                     statusText.className = 'status';
+                    exportBtn.disabled = true;
                 }
             };
             
             // --- Логика деформации и предпросмотра ---
-
             const updatePreview = () => {
                 previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
                 if (!templateImage) return;
-
-                // 1. Отрисовать фон
                 previewCtx.drawImage(templateImage, 0, 0, previewCanvas.width, previewCanvas.height);
 
-                // 2. Рассчитать и отрисовать деформацию поверх
-                if (sourceImage && sourcePoints.length >= 4 && sourcePoints.length === destinationPoints.length) {
-                    const warpedCanvas = document.createElement('canvas');
-                    warpedCanvas.width = templateCanvas.width;
-                    warpedCanvas.height = templateCanvas.height;
-                    const warpedCtx = warpedCanvas.getContext('2d');
-                    
-                    warp(
-                        sourceCanvas, 
-                        warpedCanvas, 
-                        sourcePoints, 
-                        destinationPoints.map(p => [
-                           p[0] * (warpedCanvas.width / templateCanvas.width),
-                           p[1] * (warpedCanvas.height / templateCanvas.height)
-                        ])
-                    );
-                    
-                    previewCtx.drawImage(warpedCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                const canWarp = sourceImage && sourcePoints.length >= 4 && sourcePoints.length === destinationPoints.length;
+                if (!canWarp) return;
+
+                const warpCanvas = getWarpedCanvas(sourceCanvas, templateCanvas, sourcePoints, destinationPoints);
+                if(warpCanvas) {
+                    previewCtx.drawImage(warpCanvas, 0, 0, previewCanvas.width, previewCanvas.height);
                 }
             };
 
-            // --- Основной алгоритм деформации ---
-            const warp = (srcCanvas, destCanvas, srcPoints, destPoints) => {
-                const srcCtx = srcCanvas.getContext('2d');
-                const destCtx = destCanvas.getContext('2d');
+            const getWarpedCanvas = (srcCanvas, destCanvasSizeRef, srcPoints, destPoints) => {
+                // Создаем временный холст нужного размера для отрисовки деформации
+                const warpedCanvas = document.createElement('canvas');
+                warpedCanvas.width = destCanvasSizeRef.width;
+                warpedCanvas.height = destCanvasSizeRef.height;
+                const warpedCtx = warpedCanvas.getContext('2d');
                 
-                // Используем d3-delaunay для триангуляции
-                const delaunay = d3.Delaunay.from(srcPoints);
-                const triangles = delaunay.triangles;
+                try {
+                    const delaunay = d3.Delaunay.from(srcPoints);
+                    const triangles = delaunay.triangles;
 
-                destCtx.clearRect(0, 0, destCanvas.width, destCanvas.height);
+                    for (let i = 0; i < triangles.length; i += 3) {
+                        const p_src = [ srcPoints[triangles[i]], srcPoints[triangles[i+1]], srcPoints[triangles[i+2]] ];
+                        const p_dest = [ destPoints[triangles[i]], destPoints[triangles[i+1]], destPoints[triangles[i+2]] ];
+                        
+                        warpedCtx.save();
+                        warpedCtx.beginPath();
+                        warpedCtx.moveTo(p_dest[0][0], p_dest[0][1]);
+                        warpedCtx.lineTo(p_dest[1][0], p_dest[1][1]);
+                        warpedCtx.lineTo(p_dest[2][0], p_dest[2][1]);
+                        warpedCtx.closePath();
+                        warpedCtx.clip();
 
-                for (let i = 0; i < triangles.length; i += 3) {
-                    const p0_src = srcPoints[triangles[i]];
-                    const p1_src = srcPoints[triangles[i+1]];
-                    const p2_src = srcPoints[triangles[i+2]];
-
-                    const p0_dest = destPoints[triangles[i]];
-                    const p1_dest = destPoints[triangles[i+1]];
-                    const p2_dest = destPoints[triangles[i+2]];
-                    
-                    // Сохраняем состояние контекста
-                    destCtx.save();
-
-                    // Создаем маску по целевому треугольнику
-                    destCtx.beginPath();
-                    destCtx.moveTo(p0_dest[0], p0_dest[1]);
-                    destCtx.lineTo(p1_dest[0], p1_dest[1]);
-                    destCtx.lineTo(p2_dest[0], p2_dest[1]);
-                    destCtx.closePath();
-                    destCtx.clip();
-
-                    // Вычисляем аффинное преобразование
-                    const transform = getAffineTransform(
-                        [p0_src, p1_src, p2_src],
-                        [p0_dest, p1_dest, p2_dest]
-                    );
-
-                    // Применяем трансформацию и рисуем исходное изображение
-                    destCtx.setTransform(transform.a, transform.b, transform.c, transform.d, transform.e, transform.f);
-                    destCtx.drawImage(srcCanvas, 0, 0);
-                    
-                    // Восстанавливаем состояние контекста для следующего треугольника
-                    destCtx.restore();
+                        const transform = getAffineTransform(p_src, p_dest);
+                        warpedCtx.setTransform(transform.a, transform.b, transform.c, transform.d, transform.e, transform.f);
+                        warpedCtx.drawImage(srcCanvas, 0, 0);
+                        warpedCtx.restore();
+                    }
+                    return warpedCanvas;
+                } catch(e) {
+                    console.error("Warping failed:", e);
+                    return null;
                 }
             };
 
@@ -592,39 +491,23 @@
                 const [ [x0, y0], [x1, y1], [x2, y2] ] = srcTri;
                 const [ [u0, v0], [u1, v1], [u2, v2] ] = dstTri;
                 
+                // Решение системы линейных уравнений для матрицы аффинного преобразования
+                // M * t = b, где t = [a, c, e, b, d, f]
                 const M = [
-                    [x0, y0, 1, 0, 0, 0],
-                    [0, 0, 0, x0, y0, 1],
-                    [x1, y1, 1, 0, 0, 0],
-                    [0, 0, 0, x1, y1, 1],
-                    [x2, y2, 1, 0, 0, 0],
-                    [0, 0, 0, x2, y2, 1]
+                    [x0, y0, 1, 0, 0, 0], [0, 0, 0, x0, y0, 1],
+                    [x1, y1, 1, 0, 0, 0], [0, 0, 0, x1, y1, 1],
+                    [x2, y2, 1, 0, 0, 0], [0, 0, 0, x2, y2, 1]
                 ];
-                
                 const b = [u0, v0, u1, v1, u2, v2];
-                
-                // Решаем систему линейных уравнений M*t = b для t=[a,c,e,b,d,f]
-                // Используем простую реализацию решения СЛАУ
                 const t = solve(M, b);
                 
-                if (!t) return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }; // Identity transform on failure
-                
+                if (!t) return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
                 return { a: t[0], c: t[1], e: t[2], b: t[3], d: t[4], f: t[5] };
             };
 
             // --- Экспорт ---
-            
-            const showExportModal = () => {
-                if (sourcePoints.length >= 4 && sourcePoints.length === destinationPoints.length) {
-                    document.getElementById('export-modal').style.display = 'flex';
-                } else {
-                    alert('Недостаточно точек для экспорта. Расставьте минимум 4 пары соответствующих точек.');
-                }
-            };
-            
-            const hideExportModal = () => {
-                 document.getElementById('export-modal').style.display = 'none';
-            };
+            const showExportModal = () => document.getElementById('export-modal').style.display = 'flex';
+            const hideExportModal = () => document.getElementById('export-modal').style.display = 'none';
 
             const handleExport = () => {
                 const diameter = parseFloat(document.getElementById('gobo-diameter').value);
@@ -634,8 +517,7 @@
                     alert('Пожалуйста, введите корректные значения диаметра и DPI.');
                     return;
                 }
-
-                // Создаем новый холст для экспорта
+                
                 const exportSizePx = Math.round((diameter / 25.4) * dpi);
                 const exportCanvas = document.createElement('canvas');
                 exportCanvas.width = exportSizePx;
@@ -648,90 +530,56 @@
                 exportCtx.arc(exportSizePx / 2, exportSizePx / 2, exportSizePx / 2, 0, 2 * Math.PI);
                 exportCtx.fill();
 
-                // 2. Масштабируем точки под новый размер
-                // Мы хотим, чтобы искаженное изображение занимало, скажем, 90% диаметра
-                const scale = (exportSizePx * 0.9) / sourceCanvas.width;
-                const offsetX = (exportSizePx - sourceCanvas.width * scale) / 2;
-                const offsetY = (exportSizePx - sourceCanvas.height * scale) / 2;
-
-                const scaledDestPoints = destinationPoints.map(p => [
+                // 2. Рассчитываем и рисуем деформированное изображение
+                const warpedCanvas = getWarpedCanvas(sourceCanvas, {width: exportSizePx, height: exportSizePx}, sourcePoints, destinationPoints.map(p => [
                     (p[0] / templateCanvas.width) * exportSizePx,
                     (p[1] / templateCanvas.height) * exportSizePx
-                ]);
-
-                // 3. Рисуем искаженное изображение поверх маски
-                const tempWarpCanvas = document.createElement('canvas');
-                tempWarpCanvas.width = exportSizePx;
-                tempWarpCanvas.height = exportSizePx;
+                ]));
                 
-                warp(sourceCanvas, tempWarpCanvas, sourcePoints, scaledDestPoints);
-                
-                exportCtx.drawImage(tempWarpCanvas, 0, 0);
+                if (warpedCanvas) {
+                    exportCtx.drawImage(warpedCanvas, 0, 0);
+                }
 
-                // 4. Скачиваем файл
+                // 3. Скачиваем файл
                 const link = document.createElement('a');
-                link.download = `gobo_${diameter}mm_${dpi}dpi.png`;
+                link.download = `gobo_export_${diameter}mm_${dpi}dpi.png`;
                 link.href = exportCanvas.toDataURL('image/png');
                 link.click();
-
                 hideExportModal();
             };
             
-            // Простая функция для решения СЛАУ (метод Крамера неэффективен, но прост для 6x6)
-            // В реальном продукте лучше использовать более надежную библиотеку
+            // Надежная функция для решения СЛАУ методом Гаусса
             function solve(A, b) {
-                // Это заглушка. Для реального решения СЛАУ нужна библиотека типа math.js
-                // или реализация метода Гаусса.
-                // Ниже - очень упрощенная и не надежная попытка.
-                // Для простоты демонстрации, вернем матрицу, которая просто есть.
-                // В реальном проекте здесь должен быть надежный солвер.
-                try {
-                  let M = A.map(row => [...row]);
-                  let B = [...b];
-                  let n = M.length;
-                  for (let i = 0; i < n; i++) {
-                      let maxEl = Math.abs(M[i][i]);
-                      let maxRow = i;
-                      for (let k = i + 1; k < n; k++) {
-                          if (Math.abs(M[k][i]) > maxEl) {
-                              maxEl = Math.abs(M[k][i]);
-                              maxRow = k;
-                          }
-                      }
-                      for (let k = i; k < n; k++) {
-                          let tmp = M[maxRow][k];
-                          M[maxRow][k] = M[i][k];
-                          M[i][k] = tmp;
-                      }
-                      let tmp = B[maxRow];
-                      B[maxRow] = B[i];
-                      B[i] = tmp;
-                      for (let k = i + 1; k < n; k++) {
-                          let c = -M[k][i] / M[i][i];
-                          for (let j = i; j < n; j++) {
-                              if (i === j) {
-                                  M[k][j] = 0;
-                              } else {
-                                  M[k][j] += c * M[i][j];
-                              }
-                          }
-                          B[k] += c * B[i];
-                      }
-                  }
-                  let x = new Array(n).fill(0);
-                  for (let i = n - 1; i > -1; i--) {
-                      x[i] = B[i] / M[i][i];
-                      for (let k = i - 1; k > -1; k--) {
-                          B[k] -= M[k][i] * x[i];
-                      }
-                  }
-                  return x;
-                } catch(e) {
-                    console.error("Matrix solving failed. This is a fallback.", e);
-                    return null;
+                const n = A.length;
+                for (let i = 0; i < n; i++) {
+                    let maxEl = Math.abs(A[i][i]);
+                    let maxRow = i;
+                    for (let k = i + 1; k < n; k++) {
+                        if (Math.abs(A[k][i]) > maxEl) {
+                            maxEl = Math.abs(A[k][i]);
+                            maxRow = k;
+                        }
+                    }
+                    [A[i], A[maxRow]] = [A[maxRow], A[i]];
+                    [b[i], b[maxRow]] = [b[maxRow], b[i]];
+                    for (let k = i + 1; k < n; k++) {
+                        const c = -A[k][i] / A[i][i];
+                        for (let j = i; j < n; j++) {
+                            if (i === j) A[k][j] = 0;
+                            else A[k][j] += c * A[i][j];
+                        }
+                        b[k] += c * b[i];
+                    }
                 }
+                const x = new Array(n);
+                for (let i = n - 1; i > -1; i--) {
+                    x[i] = b[i] / A[i][i];
+                    for (let k = i - 1; k > -1; k--) {
+                        b[k] -= A[k][i] * x[i];
+                    }
+                }
+                return x;
             }
-
 
             // --- Запуск приложения ---
             init();
