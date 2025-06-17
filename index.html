@@ -19,25 +19,24 @@
             cursor: crosshair;
         }
         
-        /* УЛУЧШЕНИЯ ЛУПЫ: */
         .magnifier {
-            position: fixed; /* Изменено на fixed для позиционирования относительно окна */
+            position: fixed; 
             width: 120px;
             height: 120px;
             border: 2px solid #3B82F6;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.5); /* Полупрозрачный фон */
+            background: rgba(255, 255, 255, 0.5); 
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             pointer-events: none;
             z-index: 1000;
             display: none;
-            overflow: hidden; /* Обрезаем содержимое по кругу */
+            overflow: hidden; 
         }
         
         .magnifier canvas {
-            width: 100%; /* Заполняет родительский элемент (лупу) */
+            width: 100%; 
             height: 100%;
-            border-radius: 50%; /* Для круглой формы внутри лупы */
+            border-radius: 50%; 
         }
         
         .point-marker {
@@ -197,6 +196,7 @@
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/delaunator@5.0.0/delaunator.min.js"></script>
     <script>
         class GoboEditor {
             constructor() {
@@ -275,8 +275,8 @@
                 
                 canvas.addEventListener('mousemove', (e) => {
                     // УЛУЧШЕНИЕ ЛУПЫ: Позиционирование
-                    magnifier.style.left = (e.clientX + 10) + 'px'; // Сдвиг вправо
-                    magnifier.style.top = (e.clientY - 70) + 'px';  // Сдвиг вверх
+                    magnifier.style.left = (e.clientX + 10) + 'px'; 
+                    magnifier.style.top = (e.clientY - 70) + 'px';  
                     magnifier.style.display = 'block';
                     
                     const rect = canvas.getBoundingClientRect();
@@ -317,7 +317,7 @@
                 canvas.addEventListener('mouseup', (e) => {
                     // Исправление: Обновляем предпросмотр после отпускания точки
                     if (this.isDragging) {
-                        this.isDragging = false;
+                        this.isDragging = false; // Сбрасываем флаг isDragging
                         this.dragPoint = null;
                         this.dragCanvas = null;
                         canvas.style.cursor = 'crosshair';
@@ -326,9 +326,13 @@
                 });
                 
                 canvas.addEventListener('click', (e) => {
-                    if (!this.isDragging) {
-                        this.handleCanvasClick(e, canvas, type);
-                    }
+                    // УДАЛЕНО: if (!this.isDragging)
+                    // Теперь клик всегда срабатывает, если не было активного перетаскивания (mouseDown, потом перемещение, потом mouseUp)
+                    // Если это был просто клик (mouseDown -> mouseUp без перемещения), то this.isDragging будет false, и точка добавится.
+                    // Если это было перетаскивание, то this.isDragging будет true, но click не сработает после перетаскивания
+                    // (так как click событие не генерируется, если mousemove произошел между mousedown и mouseup).
+                    // Это стандартное поведение браузера для событий.
+                    this.handleCanvasClick(e, canvas, type);
                 });
             }
 
@@ -487,23 +491,30 @@
                         return;
                     }
                 }
+                // Важно: если mousedown не начал перетаскивание, то click должен добавить точку
+                this.isDragging = false; // Сбрасываем флаг, если это был не drag-начало
             }
 
             // handleMouseUp уже был в оригинале и я его немного исправил выше
             // handleMouseUp(e, canvas, type) { ... }
 
             handleCanvasClick(e, canvas, type) {
+                // !!! Важное изменение: удалено if (!this.isDragging)
+                // Считаем, что событие 'click' не будет генерироваться после 'drag'
+                // или что 'isDragging' будет корректно сброшен в 'mouseup'.
+                // Это более стандартное поведение.
+                
                 const rect = canvas.getBoundingClientRect();
                 const x = e.clientX - rect.left;
                 const y = e.clientY - rect.top;
                 
                 const points = type === 'source' ? this.sourcePoints : this.targetPoints;
                 
-                // Проверяем, не кликнули ли по существующей точке
+                // Проверяем, не кликнули ли по существующей точке (чтобы не добавлять дубликат)
                 for (let point of points) {
                     const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
                     if (distance < 15) {
-                        return; // Не добавляем новую точку
+                        return; // Не добавляем новую точку, если кликнули по существующей
                     }
                 }
                 
@@ -623,28 +634,37 @@
                 this.previewCtx.drawImage(virtualCanvas, 0, 0);
             }
 
-            // Добавляем параметры imageScale, imageOffsetX, imageOffsetY
+            // Добавляем параметры imageScale, imageOffsetX, imageOffsetY, targetCanvasWidth, targetCanvasHeight
             renderPiecewiseAffine(ctx, srcPts, dstPts, sourceImage, imageScale, imageOffsetX, imageOffsetY, targetCanvasWidth, targetCanvasHeight) {
                 // Получаем треугольуляцию
-                const triangles = this.getDelaunayTriangulation(srcPts); // Используем Delaunator здесь
+                // Важно: для Delaunator нужны координаты, СМЕЩЕННЫЕ к началу изображения
+                // (если изображение было центрировано на канвасе)
+                const delaunayInputPoints = srcPts.map(p => ({
+                    x: (p.x - imageOffsetX) / imageScale,
+                    y: (p.y - imageOffsetY) / imageScale
+                }));
+
+                const triangles = this.getDelaunayTriangulation(delaunayInputPoints);
                 
                 // Для каждого треугольника применяем аффинное преобразование
                 triangles.forEach(triangleIndices => {
                     const [i, j, k] = triangleIndices;
                     
-                    const srcTriangle = [
-                        srcPts[i],
-                        srcPts[j],
-                        srcPts[k]
+                    // Исходный треугольник (в координатах исходного ИЗОБРАЖЕНИЯ)
+                    const srcTriangleOriginal = [
+                        delaunayInputPoints[i],
+                        delaunayInputPoints[j],
+                        delaunayInputPoints[k]
                     ];
                     
-                    const dstTriangle = [
+                    // Целевой треугольник (в координатах целевого канваса)
+                    const dstTriangleTarget = [
                         dstPts[i],
                         dstPts[j],
                         dstPts[k]
                     ];
                     
-                    this.warpTriangle(ctx, srcTriangle, dstTriangle, sourceImage, imageScale, imageOffsetX, imageOffsetY, targetCanvasWidth, targetCanvasHeight);
+                    this.warpTriangle(ctx, srcTriangleOriginal, dstTriangleTarget, sourceImage, imageScale, imageOffsetX, imageOffsetY, targetCanvasWidth, targetCanvasHeight);
                 });
             }
 
@@ -654,41 +674,82 @@
 
                 // Delaunator требует плоский массив координат [x1, y1, x2, y2, ...]
                 const flatPoints = points.flatMap(p => [p.x, p.y]);
-                const delaunay = Delaunator.from(flatPoints);
-
-                const triangles = [];
-                for (let i = 0; i < delaunay.triangles.length; i += 3) {
-                    triangles.push([
-                        delaunay.triangles[i],
-                        delaunay.triangles[i + 1],
-                        delaunay.triangles[i + 2]
-                    ]);
+                try {
+                    const delaunay = Delaunator.from(flatPoints);
+                    const triangles = [];
+                    for (let i = 0; i < delaunay.triangles.length; i += 3) {
+                        triangles.push([
+                            delaunay.triangles[i],
+                            delaunay.triangles[i + 1],
+                            delaunay.triangles[i + 2]
+                        ]);
+                    }
+                    return triangles;
+                } catch (e) {
+                    console.error("Ошибка при триангуляции Делоне:", e);
+                    // Возвращаем пустой массив или какую-то простую триангуляцию в случае ошибки
+                    // (например, веер от первой точки, если Delaunator не может построить сетку)
+                    if (points.length >= 3) {
+                        const simpleTriangles = [];
+                        for (let i = 1; i < points.length - 1; i++) {
+                            simpleTriangles.push([0, i, i + 1]);
+                        }
+                        return simpleTriangles;
+                    }
+                    return [];
                 }
-                return triangles;
             }
 
-            // Добавляем параметры imageScale, imageOffsetX, imageOffsetY
+            // Добавляем параметры imageScale, imageOffsetX, imageOffsetY, targetCanvasWidth, targetCanvasHeight
             warpTriangle(ctx, srcTriangle, dstTriangle, sourceImage, imageScale, imageOffsetX, imageOffsetY, targetCanvasWidth, targetCanvasHeight) {
-                // Вычисляем аффинную матрицу преобразования
+                // Вычисляем аффинную матрицу преобразования: из srcTriangle (в родных координатах изображения) в dstTriangle (в координатах целевого канваса)
                 const matrix = this.getAffineMatrix(srcTriangle, dstTriangle);
                 
                 if (!matrix) return;
 
                 ctx.save();
+                // Применяем матрицу преобразования к контексту
                 ctx.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
                 
-                // Рисуем источник в пределах треугольника
+                // Рисуем исходное изображение
+                // Поскольку setTransform уже выполнил деформацию и масштабирование,
+                // drawImage просто рисует исходное изображение в его "родных" координатах
+                // а затем эта трансформация применяется к нему.
+                // ctx.drawImage(sourceImage, 0, 0); // это если srcTriangle был (0,0) (1,0) (0,1) и т.д.
+                // В нашем случае, srcTriangle содержит реальные координаты внутри sourceImage.
+                // Чтобы правильно наложить текстуру, нужно инвертировать преобразование матрицы
+                // или найти другую формулу.
+
+                // На самом деле, если setTransform преобразует srcTriangle в dstTriangle,
+                // то для того, чтобы нарисовать *содержимое* srcTriangle на месте dstTriangle,
+                // нужно нарисовать *все* sourceImage, а clip() обрезает ненужное.
+                // Но sourceImage должно быть нарисовано так, как оно исходно выглядит.
+                // setTransform уже "исказило" координатную систему контекста.
+                // Поэтому мы должны рисовать sourceImage так, как будто оно было исходным в (0,0)
+                // а затем накладывать его на деформированную сетку.
+                // Это сложная часть. Правильно будет так:
+                
                 ctx.beginPath();
                 ctx.moveTo(srcTriangle[0].x, srcTriangle[0].y);
                 ctx.lineTo(srcTriangle[1].x, srcTriangle[1].y);
                 ctx.lineTo(srcTriangle[2].x, srcTriangle[2].y);
                 ctx.closePath();
-                ctx.clip(); // Обрезаем все последующие рисунки по этой области
-                
+                ctx.clip(); // Обрезаем все последующие рисунки по этой области, но в ТРАНСФОРМИРОВАННЫХ координатах
+
                 if (sourceImage) {
-                    // Рисуем исходное изображение на целевом канвасе
-                    // setTransform уже учёл деформацию, поэтому просто рисуем sourceImage с его исходным масштабом и смещением
-                    ctx.drawImage(sourceImage, imageOffsetX, imageOffsetY, sourceImage.width * imageScale, sourceImage.height * imageScale);
+                    // Теперь рисуем исходное изображение. Его нужно рисовать БЕЗ смещения и масштаба,
+                    // поскольку эти параметры уже учтены в матрице setTransform.
+                    // НО! setTransform работает с текущей системой координат.
+                    // А наш sourceImage был нарисован с imageOffsetX, imageOffsetY на canvas.
+                    // Нужно сначала "вернуть" координатную систему в состояние, где 0,0 - это (0,0)
+                    // оригинального (не масштабированного) sourceImage,
+                    // а потом нарисовать image.
+                    
+                    // Правильный подход: setTransform() делает так, чтобы (srcX, srcY) из исходника
+                    // отображались на (dstX, dstY) на целевом канвасе.
+                    // Значит, мы просто рисуем sourceImage в его оригинальных размерах,
+                    // и текущая трансформация контекста позаботится о его деформации.
+                    ctx.drawImage(sourceImage, 0, 0, sourceImage.width, sourceImage.height);
                 }
                 
                 ctx.restore();
@@ -775,12 +836,14 @@
                 }));
                 
                 // Вычисляем масштаб, с которым sourceImage будет отображаться на exportCanvas
-                const exportImageScale = Math.min(
-                    canvasSize / sourceImageForExport.width,
-                    canvasSize / sourceImageForExport.height
-                );
-                const exportImageOffsetX = (canvasSize - sourceImageForExport.width * exportImageScale) / 2;
-                const exportImageOffsetY = (canvasSize - sourceImageForExport.height * exportImageScale) / 2;
+                // Для экспорта, sourceImage будет деформировано на exportCanvas.
+                // Координаты Delaunay и warpTriangle должны быть в "родных" координатах sourceImage.
+                // Поэтому imageScale, imageOffsetX, imageOffsetY для warpTriangle будут 1, 0, 0.
+                // Вся магия масштабирования targetPoints и transform'а уже делает нужное.
+                const exportImageScale = 1; // sourceImageForExport будет рисоваться в родном размере
+                const exportImageOffsetX = 0;
+                const exportImageOffsetY = 0;
+
 
                 // Применяем деформацию, используя unscaledSourcePoints (координаты оригинала)
                 // и scaledTargetPoints (координаты экспорта),
